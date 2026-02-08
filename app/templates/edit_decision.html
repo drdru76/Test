@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 col-xl-8">
+        <div class="card p-4 shadow-sm border-0">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0"><i class="fas fa-edit me-2 text-primary"></i>Edit Decision</h1>
+                <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i> Back to Decision
+                </a>
+            </div>
+
+            {% set pending_clarifications = decision.clarifications.filter_by(status='pending').all() %}
+            {% if pending_clarifications %}
+            <section class="mb-4">
+                <div class="card border-info border-opacity-25 shadow-sm">
+                    <div class="card-header bg-info bg-opacity-10 border-info border-opacity-25">
+                        <h2 class="h6 mb-0 text-info"><i class="fas fa-question-circle me-2"></i>Pending Clarification Requests</h2>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        {% for clar in pending_clarifications %}
+                        <div class="list-group-item p-3">
+                            <div class="d-flex w-100 justify-content-between align-items-center mb-2">
+                                <a href="{{ url_for('main.user', username=clar.author.username) }}" class="badge bg-info text-white rounded-pill text-decoration-none" title="View Profile">
+                                    <i class="fas fa-user me-1"></i> {{ clar.author.username }}
+                                </a>
+                                <small class="text-muted">{{ clar.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                            </div>
+                            <p class="mb-2 small">"{{ clar.message }}"</p>
+                            <div class="d-flex gap-2">
+                                <form action="{{ url_for('main.apply_clarification', id=clar.id) }}" method="post">
+                                    <button type="submit" class="btn btn-success btn-sm py-0 px-2" style="font-size: 0.75rem;">
+                                        <i class="fas fa-check me-1"></i> Applied
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('main.ignore_clarification', id=clar.id) }}" method="post">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;">Ignore</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+            {% endif %}
+
+            <p class="text-muted mb-4">Update the details or visibility of your decision process.</p>
+            
+            <form action="" method="post" class="needs-validation">
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.title.label(class="form-label fw-bold") }}
+                    {{ form.title(class="form-control form-control-lg") }}
+                    {% for error in form.title.errors %}
+                    <div class="text-danger small mt-1">[{{ error }}]</div>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        {{ form.description.label(class="form-label fw-bold mb-0") }}
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="ai-clarify-btn" onclick="clarifyDescription()">
+                            <i class="fas fa-magic me-1"></i> AI Clarify
+                        </button>
+                    </div>
+                    {{ form.description(style="display:none;") }}
+                    <div id="editor-container" style="height: 400px;" class="form-control"></div>
+                    {% for error in form.description.errors %}
+                    <div class="text-danger small mt-1">[{{ error }}]</div>
+                    {% endfor %}
+                </div>
+                <script>
+                    let quill;
+                    document.addEventListener('DOMContentLoaded', function() {
+                        quill = new Quill('#editor-container', {
+                            theme: 'snow',
+                            modules: {
+                                toolbar: [
+                                    [{ 'size': ['small', false, 'large', 'huge'] }],
+                                    ['bold', 'italic', 'underline'],
+                                    [{ 'color': [] }, { 'background': [] }],
+                                    ['image', 'clean']
+                                ]
+                            }
+                        });
+
+                        const descriptionInput = document.querySelector('textarea[name="description"]');
+                        if (descriptionInput.value) {
+                            quill.root.innerHTML = descriptionInput.value;
+                        }
+
+                        const form = document.querySelector('form');
+                        form.addEventListener('submit', function() {
+                            descriptionInput.value = quill.root.innerHTML;
+                        });
+                    });
+
+                    function clarifyDescription() {
+                        const title = document.querySelector('input[name="title"]').value;
+                        const description = quill.root.innerHTML;
+                        const btn = document.getElementById('ai-clarify-btn');
+                        
+                        if (quill.getText().trim().length < 5) {
+                            alert("Please enter at least a short description for AI to work with.");
+                            return;
+                        }
+
+                        const oldHtml = btn.innerHTML;
+                        btn.disabled = true;
+                        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Clarifying...';
+
+                        fetch("{{ url_for('main.clarify_description', id=decision.id) }}", {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ 
+                                title: title,
+                                description: description
+                            }),
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            btn.disabled = false;
+                            btn.innerHTML = oldHtml;
+                            if (data.clarified_description) {
+                                if (confirm("AI has suggested an improved description. Would you like to use it?")) {
+                                    quill.root.innerHTML = data.clarified_description;
+                                }
+                            } else {
+                                alert("AI couldn't clarify the description at this time.");
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            btn.disabled = false;
+                            btn.innerHTML = oldHtml;
+                            alert("Error contacting AI service.");
+                        });
+                    }
+                </script>
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        {{ form.deadline.label(class="form-label fw-bold") }}
+                        {{ form.deadline(class="form-control", type="date") }}
+                        {% for error in form.deadline.errors %}
+                        <div class="text-danger small mt-1">[{{ error }}]</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check form-switch mb-2">
+                            {{ form.is_public(class="form-check-input") }}
+                            {{ form.is_public.label(class="form-check-label fw-bold") }}
+                        </div>
+                    </div>
+                    <div class="col-12 mt-1">
+                        <div class="form-text">If public, other members will be able to see your decision and its options.</div>
+                    </div>
+                </div>
+                <div class="d-flex gap-3 mt-4 pt-3 border-top">
+                    <button type="submit" class="btn btn-primary btn-lg px-5">
+                        <i class="fas fa-save me-2"></i>Update Decision
+                    </button>
+                    <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

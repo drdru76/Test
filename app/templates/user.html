@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h2 class="card-title">{{ user.username }}</h2>
+                        {% if user.headline %}
+                        <p class="lead text-muted">{{ user.headline }}</p>
+                        {% endif %}
+                        {% if user.location %}
+                        <p class="text-muted"><i class="fas fa-map-marker-alt me-2"></i>{{ user.location }}</p>
+                        {% endif %}
+                    </div>
+                    {% if user == current_user %}
+                    <a href="{{ url_for('main.edit_profile') }}" class="btn btn-outline-primary">Edit Profile</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if user.about %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <h4 class="card-title">About</h4>
+                <p class="card-text">{{ user.about }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if user.experience %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <h4 class="card-title">Experience</h4>
+                <p class="card-text" style="white-space: pre-wrap;">{{ user.experience }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if user.education %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <h4 class="card-title">Education</h4>
+                <p class="card-text" style="white-space: pre-wrap;">{{ user.education }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if user.skills %}
+        <div class="card mb-4">
+            <div class="card-body">
+                <h4 class="card-title">Skills</h4>
+                <div>
+                    {% for skill in user.skills.split(',') %}
+                    <span class="badge bg-secondary me-1 mb-1">{{ skill.strip() }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h5 mb-0"><i class="fas fa-tags me-2 text-primary"></i>Browse by Category</h2>
+            <div class="d-flex align-items-center gap-3">
+                <div class="btn-group btn-group-sm" role="group" aria-label="View mode">
+                    <button type="button" class="btn btn-outline-secondary active" onclick="setViewMode('title')" id="btn-view-title" title="Title Only">
+                        <i class="fas fa-heading"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="setViewMode('short')" id="btn-view-short" title="Title + Short Description">
+                        <i class="fas fa-align-left"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="setViewMode('summary')" id="btn-view-summary" title="Title + Summary">
+                        <i class="fas fa-align-center"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="setViewMode('full')" id="btn-view-full" title="Title + Full Description">
+                        <i class="fas fa-align-justify"></i>
+                    </button>
+                </div>
+                {% if selected_category %}
+                <a href="{{ url_for('main.index') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-times me-1"></i>Clear Filter: <strong>{{ selected_category }}</strong>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('main.index') }}" 
+               class="badge {% if not selected_category %}bg-primary text-white{% else %}bg-light text-primary border{% endif %} rounded-pill px-3 py-2 text-decoration-none">
+               All
+            </a>
+            {% for category in categories %}
+            <a href="{{ url_for('main.index', category=category) }}" 
+               class="badge {% if selected_category == category %}bg-primary text-white{% else %}bg-light text-primary border{% endif %} rounded-pill px-3 py-2 text-decoration-none">
+               {{ category }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if current_user.is_authenticated %}
+        {% if pending_suggestions > 0 or pending_clarifications > 0 %}
+        <div class="alert alert-warning shadow-sm mb-4 d-flex align-items-center" role="alert">
+            <i class="fas fa-exclamation-circle fa-2x me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-1">Pending Actions!</h5>
+                <p class="mb-0">
+                    You have 
+                    {% if pending_suggestions > 0 %}
+                        <strong>{{ pending_suggestions }} pending suggestion{{ 's' if pending_suggestions > 1 }}</strong>
+                    {% endif %}
+                    {% if pending_suggestions > 0 and pending_clarifications > 0 %} and {% endif %}
+                    {% if pending_clarifications > 0 %}
+                        <strong>{{ pending_clarifications }} pending clarification request{{ 's' if pending_clarifications > 1 }}</strong>
+                    {% endif %}
+                    on your decisions. Check your decisions below to review them.
+                </p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if not selected_category %}
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-4">Hi, <a href="{{ url_for('main.user', username=current_user.username) }}" class="text-decoration-none">{{ current_user.username }}</a>!</h1>
+                <p class="lead">Welcome back to your decision dashboard.</p>
+            </div>
+            <div class="col-auto d-flex align-items-center">
+                <a href="{{ url_for('main.new_decision') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-plus me-2"></i>New Decision
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <div class="mb-4">
+            <h1 class="h3">Decisions in <strong>{{ selected_category }}</strong></h1>
+            <p class="text-muted">Showing both your decisions and public decisions in this category.</p>
+        </div>
+        {% endif %}
+
+        <h2 class="h4 mb-3"><i class="fas fa-list-check me-2 text-primary"></i>Your Decisions</h2>
+        {% if decisions %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-5">
+            {% for decision in decisions %}
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">
+                                <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="text-decoration-none text-dark">
+                                    {{ decision.title }}
+                                </a>
+                                {% if decision.category %}
+                                <a href="{{ url_for('main.index', category=decision.category) }}" class="badge bg-light text-muted border small ms-1 text-decoration-none" style="font-size: 0.7rem;">{{ decision.category }}</a>
+                                {% endif %}
+                            </h5>
+                            <div>
+                                {% if decision.is_public %}
+                                <span class="badge bg-light text-primary border border-primary rounded-pill me-1" title="Public">
+                                    <i class="fas fa-globe"></i>
+                                </span>
+                                {% endif %}
+                                <span class="badge {% if decision.status == 'completed' %}bg-success{% else %}bg-info text-dark{% endif %} rounded-pill">
+                                    {{ decision.status }}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        {% set p_sug = decision.suggestions.filter_by(status='pending').count() %}
+                        {% set p_cla = decision.clarifications.filter_by(status='pending').count() %}
+                        {% if p_sug > 0 or p_cla > 0 %}
+                        <div class="mb-2">
+                            {% if p_sug > 0 %}
+                            <span class="badge bg-warning text-dark me-1" title="Pending Suggestions">
+                                <i class="fas fa-lightbulb"></i> {{ p_sug }}
+                            </span>
+                            {% endif %}
+                            {% if p_cla > 0 %}
+                            <span class="badge bg-info text-dark" title="Pending Clarifications">
+                                <i class="fas fa-question-circle"></i> {{ p_cla }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <p class="card-text text-muted small">
+                            Created on {{ decision.created_at.strftime('%Y-%m-%d') }}
+                        </p>
+                        {% if decision.description %}
+                        <div class="card-text text-muted small mb-2 decision-description">
+                            <div class="view-mode-content view-mode-short d-none">
+                                {{ decision.description|striptags|truncate(100) }}
+                            </div>
+                            <div class="view-mode-content view-mode-summary d-none">
+                                {{ decision.description|striptags|truncate(250) }}
+                            </div>
+                            <div class="view-mode-content view-mode-full d-none">
+                                {{ decision.description|safe }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent border-top-0 pb-3">
+                        <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="btn btn-outline-primary btn-sm w-100">View Details</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-5 mb-5">
+            <div class="mb-3">
+                <i class="fas fa-clipboard-list fa-4x text-light"></i>
+            </div>
+            <p class="text-muted">You haven't started any decision processes yet.</p>
+            <a href="{{ url_for('main.new_decision') }}" class="btn btn-primary">Start your first decision!</a>
+        </div>
+        {% endif %}
+
+        {% if public_decisions %}
+        <h2 class="h4 mb-3 mt-5"><i class="fas fa-globe me-2 text-primary"></i>Public Decisions</h2>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            {% for decision in public_decisions %}
+            <div class="col">
+                <div class="card h-100 border-dashed">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">
+                                <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="text-decoration-none text-dark">
+                                    {{ decision.title }}
+                                </a>
+                                {% if decision.category %}
+                                <a href="{{ url_for('main.index', category=decision.category) }}" class="badge bg-light text-muted border small ms-1 text-decoration-none" style="font-size: 0.7rem;">{{ decision.category }}</a>
+                                {% endif %}
+                            </h5>
+                            <a href="{{ url_for('main.user', username=decision.owner.username) }}" class="badge bg-light text-muted border rounded-pill text-decoration-none" title="View Profile">
+                                <i class="far fa-user me-1"></i> {{ decision.owner.username }}
+                            </a>
+                        </div>
+                        <p class="card-text text-muted small">
+                            Shared on {{ decision.created_at.strftime('%Y-%m-%d') }}
+                        </p>
+                        {% if decision.description %}
+                        <div class="card-text text-muted small mb-2 decision-description">
+                            <div class="view-mode-content view-mode-short d-none">
+                                {{ decision.description|striptags|truncate(100) }}
+                            </div>
+                            <div class="view-mode-content view-mode-summary d-none">
+                                {{ decision.description|striptags|truncate(250) }}
+                            </div>
+                            <div class="view-mode-content view-mode-full d-none">
+                                {{ decision.description|safe }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent border-top-0 pb-3">
+                        <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="btn btn-outline-secondary btn-sm w-100">View Public Decision</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% else %}
+        {% if selected_category %}
+        <div class="mb-4">
+            <h1 class="h3">Public Decisions in <strong>{{ selected_category }}</strong></h1>
+            <p class="text-muted">Login to create your own decisions or contribute to these.</p>
+        </div>
+
+        {% if public_decisions %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-5">
+            {% for decision in public_decisions %}
+            <div class="col">
+                <div class="card h-100 border-dashed">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">
+                                <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="text-decoration-none text-dark">
+                                    {{ decision.title }}
+                                </a>
+                                {% if decision.category %}
+                                <a href="{{ url_for('main.index', category=decision.category) }}" class="badge bg-light text-muted border small ms-1 text-decoration-none" style="font-size: 0.7rem;">{{ decision.category }}</a>
+                                {% endif %}
+                            </h5>
+                            <a href="{{ url_for('main.user', username=decision.owner.username) }}" class="badge bg-light text-muted border rounded-pill text-decoration-none" title="View Profile">
+                                <i class="far fa-user me-1"></i> {{ decision.owner.username }}
+                            </a>
+                        </div>
+                        <p class="card-text text-muted small">
+                            Shared on {{ decision.created_at.strftime('%Y-%m-%d') }}
+                        </p>
+                        {% if decision.description %}
+                        <div class="card-text text-muted small mb-2 decision-description">
+                            <div class="view-mode-content view-mode-short d-none">
+                                {{ decision.description|striptags|truncate(100) }}
+                            </div>
+                            <div class="view-mode-content view-mode-summary d-none">
+                                {{ decision.description|striptags|truncate(250) }}
+                            </div>
+                            <div class="view-mode-content view-mode-full d-none">
+                                {{ decision.description|safe }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer bg-transparent border-top-0 pb-3">
+                        <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="btn btn-outline-secondary btn-sm w-100">View Public Decision</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-5 mb-5 bg-light rounded-3">
+            <p class="text-muted">No public decisions found in this category.</p>
+        </div>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('auth.login') }}" class="btn btn-primary px-4">Login to Get Started</a>
+        </div>
+        {% else %}
+        <div class="p-5 mb-4 bg-light rounded-3 text-center">
+            <div class="container-fluid py-5">
+                <h1 class="display-5 fw-bold"><i class="fas fa-dice-d6 text-primary me-2"></i>Welcome to D6ion!</h1>
+                <p class="col-md-8 fs-4 mx-auto">Make better decisions with the help of AI. D6ion helps you structure your choices, weigh pros and cons, and find the best path forward.</p>
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center mt-4">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg px-4 gap-3">Login to Get Started</a>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-outline-secondary btn-lg px-4">Register</a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function setViewMode(mode) {
+        // Update buttons
+        document.querySelectorAll('[id^="btn-view-"]').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        const activeBtn = document.getElementById('btn-view-' + mode);
+        if (activeBtn) activeBtn.classList.add('active');
+
+        // Update content visibility
+        document.querySelectorAll('.view-mode-content').forEach(el => {
+            el.classList.add('d-none');
+        });
+        
+        if (mode !== 'title') {
+            document.querySelectorAll('.view-mode-' + mode).forEach(el => {
+                el.classList.remove('d-none');
+            });
+        }
+
+        // Save preference
+        localStorage.setItem('decisionViewMode', mode);
+    }
+
+    // Initialize view mode on load
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedMode = localStorage.getItem('decisionViewMode') || 'full';
+        setViewMode(savedMode);
+    });
+</script>
+{% endblock %}

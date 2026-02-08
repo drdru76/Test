@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 col-xl-8">
+        <div class="card p-4 shadow-sm border-0">
+            <h1 class="h3 mb-4"><i class="fas fa-plus-circle me-2 text-primary"></i>New Decision</h1>
+            <p class="text-muted mb-4">Clearly define what you want to decide. This helps the AI provide better suggestions.</p>
+            
+            <form action="" method="post" class="needs-validation">
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.title.label(class="form-label fw-bold") }}
+                    {{ form.title(class="form-control form-control-lg", placeholder="e.g., Which laptop should I buy?") }}
+                    {% for error in form.title.errors %}
+                    <div class="text-danger small mt-1">[{{ error }}]</div>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.description.label(class="form-label fw-bold") }}
+                    {{ form.description(style="display:none;") }}
+                    <div id="editor-container" style="height: 400px;" class="form-control"></div>
+                    {% for error in form.description.errors %}
+                    <div class="text-danger small mt-1">[{{ error }}]</div>
+                    {% endfor %}
+                </div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const quill = new Quill('#editor-container', {
+                            theme: 'snow',
+                            modules: {
+                                toolbar: [
+                                    [{ 'size': ['small', false, 'large', 'huge'] }],
+                                    ['bold', 'italic', 'underline'],
+                                    [{ 'color': [] }, { 'background': [] }],
+                                    ['image', 'clean']
+                                ]
+                            }
+                        });
+
+                        const form = document.querySelector('form');
+                        const descriptionInput = document.querySelector('textarea[name="description"]');
+
+                        form.addEventListener('submit', function() {
+                            descriptionInput.value = quill.root.innerHTML;
+                        });
+                    });
+                </script>
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        {{ form.deadline.label(class="form-label fw-bold") }}
+                        {{ form.deadline(class="form-control", type="date") }}
+                        {% for error in form.deadline.errors %}
+                        <div class="text-danger small mt-1">[{{ error }}]</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check form-switch mb-2">
+                            {{ form.is_public(class="form-check-input") }}
+                            {{ form.is_public.label(class="form-check-label fw-bold") }}
+                        </div>
+                    </div>
+                    <div class="col-12 mt-1">
+                        <div class="form-text">If public, other members will be able to see your decision and its options.</div>
+                    </div>
+                </div>
+                <div class="d-flex gap-3 mt-4 pt-3 border-top">
+                    <button type="submit" class="btn btn-primary btn-lg px-5">
+                        <i class="fas fa-plus-circle me-2"></i>Create Decision
+                    </button>
+                    <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

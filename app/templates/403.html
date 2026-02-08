@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 text-center py-5">
+        <i class="fas fa-lock fa-4x text-danger mb-4"></i>
+        <h1 class="display-4">403 - Forbidden</h1>
+        <p class="lead mb-4">Sorry, you don't have permission to access this page.</p>
+        <p class="text-muted mb-5">This action might be restricted to the decision owner or an administrator.</p>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary btn-lg px-4 gap-3">Back to Dashboard</a>
+            <a href="javascript:history.back()" class="btn btn-outline-secondary btn-lg px-4">Go Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

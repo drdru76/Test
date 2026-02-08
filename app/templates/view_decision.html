@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ decision.title }}</li>
+                </ol>
+            </nav>
+
+            <div class="decision-header-card p-4 p-md-5 mb-5 shadow-sm">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+                    <div>
+                        <h1 class="display-4 fw-bold mb-0 text-gradient">{{ decision.title }}</h1>
+                    </div>
+                    {% if decision.owner == current_user or current_user.is_admin %}
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('main.edit_decision', id=decision.id) }}" class="btn btn-primary shadow-sm">
+                            <i class="fas fa-edit me-1"></i> Edit
+                        </a>
+                        <form action="{{ url_for('main.delete_decision', id=decision.id, next=url_for('main.index')) }}" method="post" onsubmit="return confirm('Are you sure you want to delete this ENTIRE decision process? This cannot be undone.');">
+                            <button type="submit" class="btn btn-outline-danger shadow-sm">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="decision-description fs-4 mb-4 border-start border-primary border-4 ps-4 py-2">
+                    {{ decision.description|safe }}
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-4">
+                    <span class="badge rounded-pill bg-light text-dark border shadow-sm px-3 py-2">
+                        <i class="far fa-calendar-alt me-1 text-primary"></i> Deadline: {{ decision.deadline.strftime('%Y-%m-%d') if decision.deadline else 'Not set' }}
+                    </span>
+                    <span class="badge rounded-pill {% if decision.status == 'completed' %}bg-success text-white{% else %}bg-primary text-white{% endif %} shadow-sm px-3 py-2">
+                        <i class="fas fa-info-circle me-1"></i> Status: {{ decision.status|capitalize }}
+                    </span>
+                    {% if decision.category %}
+                    <a href="{{ url_for('main.index', category=decision.category) }}" class="badge rounded-pill bg-light text-primary border shadow-sm px-3 py-2 text-decoration-none hover-shadow">
+                        <i class="fas fa-tag me-1"></i> {{ decision.category }}
+                    </a>
+                    {% endif %}
+                    {% if decision.is_public %}
+                    <span class="badge rounded-pill bg-info text-white shadow-sm px-3 py-2">
+                        <i class="fas fa-globe me-1"></i> Public
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if decision.owner == current_user or current_user.is_admin %}
+            {% set pending_clarifications = decision.clarifications.filter_by(status='pending').all() %}
+            {% if pending_clarifications %}
+            <section class="mb-4">
+                <div class="card border-info border-opacity-25 shadow-sm">
+                    <div class="card-header bg-info bg-opacity-10 border-info border-opacity-25">
+                        <h2 class="h6 mb-0 text-info"><i class="fas fa-question-circle me-2"></i>Pending Clarification Requests</h2>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        {% for clar in pending_clarifications %}
+                        <div class="list-group-item p-3">
+                            <div class="d-flex w-100 justify-content-between align-items-center mb-2">
+                                <a href="{{ url_for('main.user', username=clar.author.username) }}" class="badge bg-info text-white rounded-pill text-decoration-none" title="View Profile">
+                                    <i class="fas fa-user me-1"></i> {{ clar.author.username }}
+                                </a>
+                                <small class="text-muted">{{ clar.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                            </div>
+                            <p class="mb-3 small">"{{ clar.message }}"</p>
+                            <div class="d-flex gap-2">
+                                <form action="{{ url_for('main.apply_clarification', id=clar.id) }}" method="post">
+                                    <button type="submit" class="btn btn-success btn-sm py-0 px-2" style="font-size: 0.75rem;">
+                                        <i class="fas fa-check me-1"></i> Applied
+                                    </button>
+                                </form>
+                                <a href="{{ url_for('main.edit_decision', id=decision.id) }}" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.75rem;">
+                                    <i class="fas fa-edit me-1"></i> Edit Description
+                                </a>
+                                <form action="{{ url_for('main.ignore_clarification', id=clar.id) }}" method="post">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;">Ignore</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+            {% endif %}
+            {% endif %}
+
+            {% if current_user.is_authenticated and decision.owner != current_user and decision.is_public %}
+            <div class="alert alert-info shadow-sm mb-4">
+                <i class="fas fa-info-circle me-2"></i> You are viewing a <strong>public decision</strong> shared by <strong><a href="{{ url_for('main.user', username=decision.owner.username) }}" class="alert-link">{{ decision.owner.username }}</a></strong>.
+            </div>
+
+            <section class="card border-0 bg-light p-4 mb-4 shadow-sm">
+                <h3 class="h5 mb-4"><i class="fas fa-question-circle me-2 text-info"></i>Request Clarification</h3>
+                <p class="small text-muted mb-3">Is the decision description unclear? Ask the owner for more details.</p>
+                <form action="{{ url_for('main.add_clarification', id=decision.id) }}" method="post">
+                    {{ clarification_form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ clarification_form.message(class="form-control", rows=2, placeholder="e.g., Can you clarify what you mean by...") }}
+                    </div>
+                    {{ clarification_form.submit(class="btn btn-outline-info btn-sm") }}
+                </form>
+            </section>
+
+            <section class="card border-0 bg-light p-4 mb-5 shadow-sm">
+                <h3 class="h5 mb-4"><i class="fas fa-lightbulb me-2 text-warning"></i>Make a Suggestion</h3>
+                <p class="small text-muted mb-4">Have a great idea for this decision? Submit a suggestion for the owner to review.</p>
+                <form action="{{ url_for('main.add_suggestion', id=decision.id) }}" method="post" class="row g-3">
+                    {{ suggestion_form.hidden_tag() }}
+                    <div class="col-12">
+                        {{ suggestion_form.title.label(class="form-label fw-bold") }}
+                        {{ suggestion_form.title(class="form-control", placeholder="e.g., A new perspective...") }}
+                    </div>
+                    <div class="col-12">
+                        {{ suggestion_form.description.label(class="form-label fw-bold") }}
+                        {{ suggestion_form.description(class="form-control", rows=2) }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ suggestion_form.pros.label(class="form-label fw-bold text-success") }}
+                        {{ suggestion_form.pros(class="form-control", rows=2) }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ suggestion_form.cons.label(class="form-label fw-bold text-danger") }}
+                        {{ suggestion_form.cons(class="form-control", rows=2) }}
+                    </div>
+                    <div class="col-12">
+                        {{ suggestion_form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </section>
+            {% elif current_user.is_anonymous and decision.is_public %}
+            <div class="alert alert-info shadow-sm mb-4">
+                <i class="fas fa-info-circle me-2"></i> You are viewing a <strong>public decision</strong> shared by <strong><a href="{{ url_for('main.user', username=decision.owner.username) }}" class="alert-link">{{ decision.owner.username }}</a></strong>. <a href="{{ url_for('auth.login') }}" class="alert-link">Login</a> to contribute!
+            </div>
+            {% endif %}
+
+            <hr class="my-4">
+
+            <section class="mb-5">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="h4 mb-0"><i class="fas fa-list-ul me-2 text-primary"></i>1. Options</h2>
+                    {% if current_user.is_authenticated and (decision.owner == current_user or current_user.is_admin) %}
+                    <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#aiAssistantCollapse">
+                        <i class="fas fa-robot me-1"></i> AI Suggestions
+                    </button>
+                    {% endif %}
+                </div>
+
+                {% if current_user.is_authenticated and (decision.owner == current_user or current_user.is_admin) %}
+                <div class="collapse mb-4" id="aiAssistantCollapse">
+                    <div class="card ai-assistant-card border-0 p-4 shadow-sm">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h3 class="h5 mb-0"><i class="fas fa-robot me-2 text-primary"></i>AI Assistant Suggestions</h3>
+                            <button type="button" class="btn-close" data-bs-toggle="collapse" data-bs-target="#aiAssistantCollapse" aria-label="Close"></button>
+                        </div>
+                        <p class="small text-muted mb-4">Need more ideas? Let AI suggest some alternative options based on your decision goal.</p>
+                        <div class="d-grid gap-2 d-md-flex">
+                            <button id="suggest-btn" class="btn btn-primary" onclick="getAiSuggestions()">
+                                <i class="fas fa-lightbulb me-2"></i>Suggest Options
+                            </button>
+                        </div>
+                        <div id="ai-suggestions" class="mt-4"></div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if decision.options.count() > 0 %}
+                <div class="list-group shadow-sm">
+                    {% for option in decision.options.all() %}
+                    <div class="list-group-item p-4">
+                        <div class="d-flex w-100 justify-content-between align-items-center mb-2">
+                            <h5 class="mb-1 fw-bold">{{ option.title }}</h5>
+                            {% if current_user.is_authenticated and (decision.owner == current_user or current_user.is_admin) %}
+                            <div class="btn-group">
+                                <a href="{{ url_for('main.edit_option', id=option.id) }}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                                <form action="{{ url_for('main.delete_option', id=option.id) }}" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this option?');">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm rounded-start-0">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <p class="mb-3">{{ option.description }}</p>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="p-2 bg-success bg-opacity-10 border border-success border-opacity-25 rounded h-100">
+                                    <small class="text-success fw-bold d-block mb-1"><i class="fas fa-plus-circle me-1"></i> Pros</small>
+                                    <small>{{ option.pros or 'None listed' }}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-2 bg-danger bg-opacity-10 border border-danger border-opacity-25 rounded h-100">
+                                    <small class="text-danger fw-bold d-block mb-1"><i class="fas fa-minus-circle me-1"></i> Cons</small>
+                                    <small>{{ option.cons or 'None listed' }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-light border border-dashed py-4 text-center">
+                    <p class="text-muted mb-0">No options added yet. Use the form below or AI suggestions to get started.</p>
+                </div>
+                {% endif %}
+            </section>
+
+            {% if decision.owner == current_user or current_user.is_admin %}
+                {% set pending_suggestions = decision.suggestions.filter_by(status='pending').all() %}
+                {% if pending_suggestions %}
+                <section class="mb-5">
+                    <h2 class="h4 mb-4"><i class="fas fa-lightbulb me-2 text-warning"></i>Member Suggestions</h2>
+                    <div class="list-group shadow-sm mb-4">
+                        {% for suggestion in pending_suggestions %}
+                        <div class="list-group-item p-4 border-warning border-opacity-25">
+                            <div class="d-flex w-100 justify-content-between align-items-center mb-2">
+                                <h5 class="mb-1 fw-bold">{{ suggestion.title }}</h5>
+                                <a href="{{ url_for('main.user', username=suggestion.author.username) }}" class="badge bg-warning text-dark rounded-pill text-decoration-none" title="View Profile">
+                                    <i class="fas fa-user me-1"></i> From: {{ suggestion.author.username }}
+                                </a>
+                            </div>
+                            <p class="mb-3">{{ suggestion.description }}</p>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <div class="p-2 bg-success bg-opacity-10 border border-success border-opacity-25 rounded h-100">
+                                        <small class="text-success fw-bold d-block mb-1">Pros</small>
+                                        <small>{{ suggestion.pros or 'None listed' }}</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="p-2 bg-danger bg-opacity-10 border border-danger border-opacity-25 rounded h-100">
+                                        <small class="text-danger fw-bold d-block mb-1">Cons</small>
+                                        <small>{{ suggestion.cons or 'None listed' }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <form action="{{ url_for('main.accept_suggestion', id=suggestion.id) }}" method="post">
+                                    <button type="submit" class="btn btn-success btn-sm">
+                                        <i class="fas fa-check me-1"></i> Accept & Add as Option
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('main.ignore_suggestion', id=suggestion.id) }}" method="post">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                        <i class="fas fa-times me-1"></i> Ignore
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </section>
+                {% endif %}
+            {% endif %}
+
+                {% if current_user.is_authenticated and (decision.owner == current_user or current_user.is_admin) %}
+                <section class="card border-0 bg-light p-4 mb-5 shadow-sm">
+                    <h3 class="h5 mb-4"><i class="fas fa-plus-square me-2 text-primary"></i>Add New Option</h3>
+                    <form action="{{ url_for('main.add_option', id=decision.id) }}" method="post" class="row g-3">
+                        {{ option_form.hidden_tag() }}
+                        <div class="col-12">
+                            {{ option_form.title.label(class="form-label fw-bold") }}
+                            <div class="input-group">
+                                {{ option_form.title(class="form-control", placeholder="e.g., Option Name", id="option_title") }}
+                                <button class="btn btn-outline-primary" type="button" id="refine-option-btn" onclick="refineOption()">
+                                    <i class="fas fa-magic me-1"></i> AI Refine
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            {{ option_form.description.label(class="form-label fw-bold") }}
+                            {{ option_form.description(class="form-control", rows=2, placeholder="Brief description...", id="option_description") }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ option_form.pros.label(class="form-label fw-bold text-success") }}
+                            {{ option_form.pros(class="form-control", rows=2, placeholder="Points in favor...", id="option_pros") }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ option_form.cons.label(class="form-label fw-bold text-danger") }}
+                            {{ option_form.cons(class="form-control", rows=2, placeholder="Points against...", id="option_cons") }}
+                        </div>
+                        <div class="col-12 text-end">
+                            <button type="submit" class="btn btn-primary px-4">Add Option</button>
+                        </div>
+                    </form>
+                </section>
+                {% elif current_user.is_authenticated and decision.is_public %}
+                <div class="alert alert-light border border-dashed py-4 text-center mb-5">
+                    <p class="text-muted mb-0">Only the owner can add or edit options for this decision.</p>
+                </div>
+                {% endif %}
+        </div>
+    </div>
+
+    <script>
+    function getAiSuggestions() {
+        const btn = document.getElementById('suggest-btn');
+        const container = document.getElementById('ai-suggestions');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Consulting AI...';
+        container.innerHTML = '<div class="text-center py-3"><div class="spinner-grow text-primary spinner-grow-sm"></div> <small class="text-muted ms-2 italic">Thinking...</small></div>';
+
+        fetch("{{ url_for('main.suggest_options', id=decision.id) }}")
+            .then(response => response.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-lightbulb me-2"></i>Suggest More Options';
+                if (data.suggestions && data.suggestions.length > 0) {
+                    let html = '<div class="list-group list-group-flush">';
+                    data.suggestions.forEach((s, index) => {
+                        html += `
+                            <div class="list-group-item bg-transparent px-0 border-bottom">
+                                <h6 class="mb-1 fw-bold">${s.title}</h6>
+                                <p class="small text-muted mb-2">${s.description}</p>
+                                <button class="btn btn-sm btn-link text-decoration-none p-0 fw-bold" onclick="fillOptionForm('${s.title.replace(/'/g, "\\'")}', '${s.description.replace(/'/g, "\\'")}', '${s.pros.replace(/'/g, "\\'")}', '${s.cons.replace(/'/g, "\\'")}')">
+                                    <i class="fas fa-plus-circle me-1"></i> Use suggestion
+                                </button>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div class="alert alert-warning py-2 small">AI couldn\'t generate suggestions at this time.</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-lightbulb me-2"></i>Suggest Options';
+                container.innerHTML = '<div class="alert alert-danger py-2 small">Error contacting AI service.</div>';
+            });
+    }
+
+    function fillOptionForm(title, desc, pros, cons) {
+        document.getElementById('option_title').value = title;
+        document.getElementById('option_description').value = desc;
+        document.getElementById('option_pros').value = pros;
+        document.getElementById('option_cons').value = cons;
+        window.scrollTo({
+            top: document.getElementById('option_title').offsetTop - 100,
+            behavior: 'smooth'
+        });
+    }
+
+    function refineOption() {
+        const title = document.getElementById('option_title').value;
+        if (!title) {
+            alert("Please enter an option title first.");
+            return;
+        }
+        const btn = document.getElementById('refine-option-btn');
+        const oldHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Refining...';
+
+        fetch("{{ url_for('main.refine_option', id=decision.id) }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ title: title }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerText = 'AI Suggest Details';
+            if (data.description) {
+                document.getElementById('option_description').value = data.description;
+                document.getElementById('option_pros').value = data.pros;
+                document.getElementById('option_cons').value = data.cons;
+            } else {
+                alert("AI couldn't suggest details at this time.");
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            btn.disabled = false;
+            btn.innerText = 'AI Suggest Details';
+            alert("Error contacting AI service.");
+        });
+    }
+    </script>
+{% endblock %}
