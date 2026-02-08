@@ -5,7 +5,6 @@
     <div class="col-lg-10 col-xl-8">
         <div class="card p-4 shadow-sm border-0">
             <h1 class="h3 mb-4"><i class="fas fa-plus-circle me-2 text-primary"></i>New Decision</h1>
-            <p class="text-muted mb-4">Clearly define what you want to decide. This helps the AI provide better suggestions.</p>
             
             <form action="" method="post" class="needs-validation">
                 {{ form.hidden_tag() }}
@@ -16,37 +15,82 @@
                     <div class="text-danger small mt-1">[{{ error }}]</div>
                     {% endfor %}
                 </div>
-                <div class="mb-3">
-                    {{ form.description.label(class="form-label fw-bold") }}
-                    {{ form.description(style="display:none;") }}
-                    <div id="editor-container" style="height: 400px;" class="form-control"></div>
-                    {% for error in form.description.errors %}
-                    <div class="text-danger small mt-1">[{{ error }}]</div>
-                    {% endfor %}
-                </div>
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {
-                        const quill = new Quill('#editor-container', {
-                            theme: 'snow',
-                            modules: {
-                                toolbar: [
-                                    [{ 'size': ['small', false, 'large', 'huge'] }],
-                                    ['bold', 'italic', 'underline'],
-                                    [{ 'color': [] }, { 'background': [] }],
-                                    ['image', 'clean']
-                                ]
+                        const form = document.querySelector('form');
+                        
+                        // Stage editors
+                        const stageEditors = {};
+                        const stageChoices = {{ form.stage.choices|tojson|safe }};
+                        stageChoices.forEach(choice => {
+                            const value = choice[0];
+                            const editorId = '#editor-' + value;
+                            if (document.querySelector(editorId)) {
+                                stageEditors[value] = new Quill(editorId, {
+                                    theme: 'snow',
+                                    modules: {
+                                        toolbar: [
+                                            ['bold', 'italic', 'underline'],
+                                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                                            ['clean']
+                                        ]
+                                    }
+                                });
+                                
+                                // Set initial content if editing
+                                const hiddenInput = document.querySelector('textarea[name="stage_' + value + '"]');
+                                if (hiddenInput && hiddenInput.value) {
+                                    stageEditors[value].root.innerHTML = hiddenInput.value;
+                                }
                             }
                         });
 
-                        const form = document.querySelector('form');
-                        const descriptionInput = document.querySelector('textarea[name="description"]');
-
                         form.addEventListener('submit', function() {
-                            descriptionInput.value = quill.root.innerHTML;
+                            // Sync stage editors
+                            for (const value in stageEditors) {
+                                const hiddenInput = document.querySelector('textarea[name="stage_' + value + '"]');
+                                if (hiddenInput) {
+                                    hiddenInput.value = stageEditors[value].root.innerHTML;
+                                    // If content is just empty tags, make it truly empty
+                                    if (hiddenInput.value === '<p><br></p>') {
+                                        hiddenInput.value = '';
+                                    }
+                                }
+                            }
                         });
                     });
                 </script>
                 <div class="row mb-4">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        {{ form.stage.label(class="form-label fw-bold") }}
+                        {{ form.stage(class="form-select", onchange="updateStageInfo()") }}
+                        {% for error in form.stage.errors %}
+                        <div class="text-danger small mt-1">[{{ error }}]</div>
+                        {% endfor %}
+                        <div id="stage-info" class="mt-3 small p-2 bg-light border rounded" style="display:none;">
+                            <div id="stage-quote" class="fw-bold text-primary mb-1"></div>
+                            <div id="stage-risk" class="text-danger"></div>
+                        </div>
+                    </div>
+                    <script>
+                        const stageDetails = {{ stage_details|tojson|safe if stage_details else '{}' }};
+                        function updateStageInfo() {
+                            const stageSelect = document.querySelector('select[name="stage"]');
+                            const stageInfo = document.getElementById('stage-info');
+                            const stageQuote = document.getElementById('stage-quote');
+                            const stageRisk = document.getElementById('stage-risk');
+                            
+                            const selectedStage = stageSelect.value;
+                            if (stageDetails && stageDetails[selectedStage]) {
+                                stageQuote.innerText = stageDetails[selectedStage].quote;
+                                stageRisk.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> <strong>Risk:</strong> ' + stageDetails[selectedStage].risk;
+                                stageInfo.style.display = 'block';
+                            } else {
+                                stageInfo.style.display = 'none';
+                            }
+                        }
+                        document.addEventListener('DOMContentLoaded', updateStageInfo);
+                    </script>
                     <div class="col-md-6">
                         {{ form.deadline.label(class="form-label fw-bold") }}
                         {{ form.deadline(class="form-control", type="date") }}
@@ -54,13 +98,59 @@
                         <div class="text-danger small mt-1">[{{ error }}]</div>
                         {% endfor %}
                     </div>
-                    <div class="col-md-6 d-flex align-items-end">
+                </div>
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h2 class="h5 mb-3 fw-bold"><i class="fas fa-tasks me-2 text-primary"></i>Decision Stages Details</h2>
+                        <p class="text-muted small mb-3">Optional: You can pre-fill details for any of the decision stages below.</p>
+                        <div class="accordion shadow-sm mb-4" id="stagesAccordion">
+                            {% for value, label in form.stage.choices %}
+                            {% set stage_num = value.split('_')[0] %}
+                            <div class="accordion-item border-0 mb-2 rounded overflow-hidden shadow-sm">
+                                <h2 class="accordion-header" id="heading{{ stage_num }}">
+                                    <button class="accordion-button py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ stage_num }}" aria-expanded="true" aria-controls="collapse{{ stage_num }}">
+                                        <span class="badge rounded-pill bg-secondary me-2">{{ stage_num }}</span>
+                                        <span class="small fw-bold">{{ label }}</span>
+                                    </button>
+                                </h2>
+                                <div id="collapse{{ stage_num }}" class="accordion-collapse collapse show" aria-labelledby="heading{{ stage_num }}" data-bs-parent="#stagesAccordion">
+                                    <div class="accordion-body bg-white p-3">
+                                        <div class="row">
+                                            <div class="col-lg-4">
+                                                {% if stage_details and value in stage_details %}
+                                                <div class="stage-guidance mb-3 p-2 bg-light border-start border-primary border-4 rounded-end small">
+                                                    <div class="fw-bold text-primary mb-1">{{ stage_details[value]['quote'] }}</div>
+                                                    <ul class="mb-1 ps-3 text-muted">
+                                                        {% for bullet in stage_details[value]['bullets'] %}
+                                                        <li>{{ bullet }}</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                    <div class="text-danger">
+                                                        <i class="fas fa-exclamation-triangle me-1"></i> <strong>Risk:</strong> {{ stage_details[value]['risk'] }}
+                                                    </div>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-lg-8">
+                                                {% set field_name = 'stage_' + value %}
+                                                {{ form[field_name](style="display:none;") }}
+                                                <div id="editor-{{ value }}" style="height: 200px;" class="form-control"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-12">
                         <div class="form-check form-switch mb-2">
                             {{ form.is_public(class="form-check-input") }}
                             {{ form.is_public.label(class="form-check-label fw-bold") }}
                         </div>
-                    </div>
-                    <div class="col-12 mt-1">
                         <div class="form-text">If public, other members will be able to see your decision and its options.</div>
                     </div>
                 </div>

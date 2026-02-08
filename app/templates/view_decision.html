@@ -29,15 +29,19 @@
                     {% endif %}
                 </div>
 
-                <div class="decision-description fs-4 mb-4 border-start border-primary border-4 ps-4 py-2">
-                    {{ decision.description|safe }}
-                </div>
-
                 <div class="d-flex flex-wrap align-items-center gap-2 mt-4">
                     <span class="badge rounded-pill bg-light text-dark border shadow-sm px-3 py-2">
                         <i class="far fa-calendar-alt me-1 text-primary"></i> Deadline: {{ decision.deadline.strftime('%Y-%m-%d') if decision.deadline else 'Not set' }}
                     </span>
-                    <span class="badge rounded-pill {% if decision.status == 'completed' %}bg-success text-white{% else %}bg-primary text-white{% endif %} shadow-sm px-3 py-2">
+                    <span class="badge rounded-pill bg-primary text-white shadow-sm px-3 py-2">
+                        <i class="fas fa-tasks me-1"></i> Stage: 
+                        {% for value, label in decision.STAGES %}
+                            {% if value == decision.stage %}
+                                {{ label }}
+                            {% endif %}
+                        {% endfor %}
+                    </span>
+                    <span class="badge rounded-pill {% if decision.status == 'completed' %}bg-success text-white{% else %}bg-secondary text-white{% endif %} shadow-sm px-3 py-2">
                         <i class="fas fa-info-circle me-1"></i> Status: {{ decision.status|capitalize }}
                     </span>
                     {% if decision.category %}
@@ -53,88 +57,253 @@
                 </div>
             </div>
 
-            {% if decision.owner == current_user or current_user.is_admin %}
-            {% set pending_clarifications = decision.clarifications.filter_by(status='pending').all() %}
-            {% if pending_clarifications %}
-            <section class="mb-4">
-                <div class="card border-info border-opacity-25 shadow-sm">
-                    <div class="card-header bg-info bg-opacity-10 border-info border-opacity-25">
-                        <h2 class="h6 mb-0 text-info"><i class="fas fa-question-circle me-2"></i>Pending Clarification Requests</h2>
-                    </div>
-                    <div class="list-group list-group-flush">
-                        {% for clar in pending_clarifications %}
-                        <div class="list-group-item p-3">
-                            <div class="d-flex w-100 justify-content-between align-items-center mb-2">
-                                <a href="{{ url_for('main.user', username=clar.author.username) }}" class="badge bg-info text-white rounded-pill text-decoration-none" title="View Profile">
-                                    <i class="fas fa-user me-1"></i> {{ clar.author.username }}
-                                </a>
-                                <small class="text-muted">{{ clar.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
-                            </div>
-                            <p class="mb-3 small">"{{ clar.message }}"</p>
-                            <div class="d-flex gap-2">
-                                <form action="{{ url_for('main.apply_clarification', id=clar.id) }}" method="post">
-                                    <button type="submit" class="btn btn-success btn-sm py-0 px-2" style="font-size: 0.75rem;">
-                                        <i class="fas fa-check me-1"></i> Applied
-                                    </button>
-                                </form>
-                                <a href="{{ url_for('main.edit_decision', id=decision.id) }}" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.75rem;">
-                                    <i class="fas fa-edit me-1"></i> Edit Description
-                                </a>
-                                <form action="{{ url_for('main.ignore_clarification', id=clar.id) }}" method="post">
-                                    <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;">Ignore</button>
-                                </form>
+            <section class="mb-5">
+                <h2 class="h4 mb-4"><i class="fas fa-tasks me-2 text-primary"></i>Decision Stages Details</h2>
+                <div class="accordion shadow-sm" id="stagesAccordion">
+                    {% for value, label in stages %}
+                    {% set stage_num = value.split('_')[0] %}
+                    {% set stage_content_attr = 'stage_' + value %}
+                    {% set stage_content = getattr(decision, stage_content_attr) %}
+                    <div class="accordion-item border-0 mb-3 rounded overflow-hidden">
+                        <h2 class="accordion-header" id="heading{{ stage_num }}">
+                            <button class="accordion-button {% if not stage_content %}collapsed{% endif %} py-3" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ stage_num }}" aria-expanded="{% if stage_content %}true{% else %}false{% endif %}" aria-controls="collapse{{ stage_num }}">
+                                <span class="badge rounded-pill {% if decision.stage == value %}bg-primary{% else %}bg-secondary{% endif %} me-3">{{ stage_num }}</span>
+                                <span class="fw-bold {% if decision.stage == value %}text-primary{% endif %}">{{ label }}</span>
+                                {% if decision.stage == value %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-3 small">Current Stage</span>
+                                {% endif %}
+                                {% if stage_content %}
+                                <i class="fas fa-check-circle text-success ms-auto me-3" title="Content added"></i>
+                                {% endif %}
+                            </button>
+                        </h2>
+                        <div id="collapse{{ stage_num }}" class="accordion-collapse collapse {% if stage_content %}show{% endif %}" aria-labelledby="heading{{ stage_num }}" data-bs-parent="#stagesAccordion">
+                            <div class="accordion-body bg-white p-4">
+                                <div class="row">
+                                    <div class="col-lg-4">
+                                        <!-- Stage Guidance -->
+                                        {% if stage_details and value in stage_details %}
+                                        <div class="stage-guidance mb-4 p-3 bg-light border-start border-primary border-4 rounded-end">
+                                            <h5 class="h6 fw-bold text-primary mb-2">{{ stage_details[value]['quote'] }}</h5>
+                                            <ul class="small text-muted mb-2 ps-3">
+                                                {% for bullet in stage_details[value]['bullets'] %}
+                                                <li>{{ bullet }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                            <div class="small text-danger mt-2">
+                                                <i class="fas fa-exclamation-triangle me-1"></i> <strong>Risk here:</strong> {{ stage_details[value]['risk'] }}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-lg-8">
+                                        <div id="display-{{ value }}" class="stage-display mb-3">
+                                            {% if stage_content %}
+                                                <div class="p-3 bg-light rounded border">
+                                                    {{ stage_content|safe }}
+                                                </div>
+                                            {% else %}
+                                                <p class="text-muted italic">No content yet for this stage.</p>
+                                            {% endif %}
+                                        </div>
+
+                                        <div id="ai-comparison-{{ value }}" class="ai-comparison d-none mb-3">
+                                            <div class="card border-magic">
+                                                <div class="card-header bg-magic text-white d-flex justify-content-between align-items-center">
+                                                    <span><i class="fas fa-robot me-2"></i>AI Suggested Improvement</span>
+                                                    <button type="button" class="btn-close btn-close-white" onclick="closeAiComparison('{{ value }}')" aria-label="Close"></button>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="row g-3">
+                                                        <div class="col-md-6">
+                                                            <h6 class="fw-bold text-muted mb-2">Current Content</h6>
+                                                            <div class="p-3 border rounded bg-light small" style="max-height: 300px; overflow-y: auto;">
+                                                                {% if stage_content %}
+                                                                    {{ stage_content|safe }}
+                                                                {% else %}
+                                                                    <span class="text-muted italic">Empty</span>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <h6 class="fw-bold text-magic mb-2">AI Suggestion</h6>
+                                                            <div id="ai-suggestion-content-{{ value }}" class="p-3 border border-magic rounded bg-magic-subtle small" style="max-height: 300px; overflow-y: auto;">
+                                                                <!-- AI content goes here -->
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="d-flex gap-2 mt-3 justify-content-end">
+                                                        <button class="btn btn-outline-secondary btn-sm" onclick="closeAiComparison('{{ value }}')">Discard</button>
+                                                        <button class="btn btn-magic btn-sm" id="apply-ai-{{ value }}" onclick="applyAiSuggestion('{{ value }}')">
+                                                            <i class="fas fa-check me-1"></i> Use Suggestion
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {% if decision.owner == current_user or current_user.is_admin %}
+                                        {% set stage_suggestions = decision.stage_suggestions.filter_by(stage_key=value, status='pending').all() %}
+                                        {% if stage_suggestions %}
+                                        <div class="stage-suggestions-contextual mb-3">
+                                            <h6 class="fw-bold text-warning small mb-2"><i class="fas fa-lightbulb me-1"></i>Pending Suggestions for this Stage:</h6>
+                                            {% for sug in stage_suggestions %}
+                                            <div class="card border-warning border-opacity-25 mb-2 shadow-sm">
+                                                <div class="card-body p-2 small">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <a href="{{ url_for('main.user', username=sug.author.username) }}" class="fw-bold text-decoration-none">
+                                                            {{ sug.author.username }}
+                                                        </a>
+                                                        <span class="text-muted" style="font-size: 0.7rem;">{{ sug.created_at.strftime('%Y-%m-%d') }}</span>
+                                                    </div>
+                                                    <div class="mb-2 border p-2 bg-light rounded" style="max-height: 80px; overflow-y: auto;">
+                                                        {{ sug.content|safe }}
+                                                    </div>
+                                                    <div class="d-flex gap-2">
+                                                        <form action="{{ url_for('main.accept_stage_suggestion', id=sug.id) }}" method="post">
+                                                            <button type="submit" class="btn btn-success btn-sm py-0 px-2" style="font-size: 0.7rem;">
+                                                                <i class="fas fa-check me-1"></i> Accept
+                                                            </button>
+                                                        </form>
+                                                        <form action="{{ url_for('main.ignore_stage_suggestion', id=sug.id) }}" method="post">
+                                                            <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;">Ignore</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div id="edit-{{ value }}" class="stage-edit d-none">
+                                            <div id="editor-{{ value }}" style="height: 200px;" class="mb-3"></div>
+                                            <div class="d-flex gap-2">
+                                                <button class="btn btn-primary btn-sm" onclick="saveStage('{{ value }}')">
+                                                    <i class="fas fa-save me-1"></i> Save
+                                                </button>
+                                                <button class="btn btn-outline-secondary btn-sm" onclick="toggleEdit('{{ value }}')">Cancel</button>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex gap-2 mt-3">
+                                            <button class="btn btn-outline-primary btn-sm" onclick="toggleEdit('{{ value }}')">
+                                                <i class="fas fa-edit me-1"></i> {% if stage_content %}Edit{% else %}Add Content{% endif %}
+                                            </button>
+                                            <button class="btn btn-outline-magic btn-sm" id="ai-btn-{{ value }}" onclick="aiAssist('{{ value }}')">
+                                                <i class="fas fa-magic me-1"></i> AI Assist
+                                            </button>
+                                        </div>
+                                        {% elif current_user.is_authenticated %}
+                                        <div id="suggest-{{ value }}" class="stage-suggest d-none">
+                                            <div id="suggest-editor-{{ value }}" style="height: 200px;" class="mb-3"></div>
+                                            <div class="d-flex gap-2">
+                                                <button class="btn btn-warning btn-sm" onclick="submitSuggestion('{{ value }}')">
+                                                    <i class="fas fa-paper-plane me-1"></i> Submit Suggestion
+                                                </button>
+                                                <button class="btn btn-outline-secondary btn-sm" onclick="toggleSuggest('{{ value }}')">Cancel</button>
+                                            </div>
+                                        </div>
+                                        <div class="mt-3">
+                                            <button class="btn btn-outline-warning btn-sm" onclick="toggleSuggest('{{ value }}')">
+                                                <i class="fas fa-lightbulb me-1"></i> Suggest Improvement
+                                            </button>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            {% set pending_stage_suggestions = decision.stage_suggestions.filter_by(status='pending').all() %}
+            {% if (decision.owner == current_user or current_user.is_admin) and pending_stage_suggestions %}
+            <section class="mb-4">
+                <div class="row">
+                    <div class="col-md-12 mb-4">
+                        <div class="card border-warning border-opacity-25 shadow-sm h-100">
+                            <div class="card-header bg-warning bg-opacity-10 border-warning border-opacity-25">
+                                <h2 class="h6 mb-0 text-warning"><i class="fas fa-lightbulb me-2"></i>Pending Stage Suggestions</h2>
+                            </div>
+                            <div class="list-group list-group-flush">
+                                {% for sug in pending_stage_suggestions %}
+                                <div class="list-group-item p-3">
+                                    <div class="d-flex w-100 justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <span class="badge bg-secondary me-2">{{ sug.stage_key|replace('_', ' ')|title }}</span>
+                                            <a href="{{ url_for('main.user', username=sug.author.username) }}" class="badge bg-info text-white rounded-pill text-decoration-none" title="View Profile">
+                                                <i class="fas fa-user me-1"></i> {{ sug.author.username }}
+                                            </a>
+                                        </div>
+                                        <small class="text-muted">{{ sug.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                    </div>
+                                    <div class="mb-3 small border p-2 bg-light rounded" style="max-height: 100px; overflow-y: auto;">
+                                        {{ sug.content|safe }}
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <form action="{{ url_for('main.accept_stage_suggestion', id=sug.id) }}" method="post">
+                                            <button type="submit" class="btn btn-success btn-sm py-0 px-2" style="font-size: 0.75rem;">
+                                                <i class="fas fa-check me-1"></i> Accept
+                                            </button>
+                                        </form>
+                                        <form action="{{ url_for('main.ignore_stage_suggestion', id=sug.id) }}" method="post">
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;">Ignore</button>
+                                        </form>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
             {% endif %}
+
+            {% if (decision.owner == current_user or current_user.is_admin) %}
+                {% set pending_clarifications = decision.clarifications.filter_by(status='pending').all() %}
+                {% if pending_clarifications %}
+            <section class="mb-4">
+                <div class="row">
+                    <div class="col-md-12 mb-4">
+                        <div class="card border-info border-opacity-25 shadow-sm h-100">
+                            <div class="card-header bg-info bg-opacity-10 border-info border-opacity-25">
+                                <h2 class="h6 mb-0 text-info"><i class="fas fa-question-circle me-2"></i>Pending Clarification Requests</h2>
+                            </div>
+                            <div class="list-group list-group-flush">
+                                {% for clar in pending_clarifications %}
+                                <div class="list-group-item p-3">
+                                    <div class="d-flex w-100 justify-content-between align-items-center mb-2">
+                                        <a href="{{ url_for('main.user', username=clar.author.username) }}" class="badge bg-info text-white rounded-pill text-decoration-none" title="View Profile">
+                                            <i class="fas fa-user me-1"></i> {{ clar.author.username }}
+                                        </a>
+                                        <small class="text-muted">{{ clar.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                    </div>
+                                    <p class="mb-3 small">"{{ clar.message }}"</p>
+                                    <div class="d-flex gap-2">
+                                        <form action="{{ url_for('main.apply_clarification', id=clar.id) }}" method="post">
+                                            <button type="submit" class="btn btn-success btn-sm py-0 px-2" style="font-size: 0.75rem;">
+                                                <i class="fas fa-check me-1"></i> Applied
+                                            </button>
+                                        </form>
+                                        <form action="{{ url_for('main.ignore_clarification', id=clar.id) }}" method="post">
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;">Ignore</button>
+                                        </form>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+                {% endif %}
             {% endif %}
 
-            {% if current_user.is_authenticated and decision.owner != current_user and decision.is_public %}
+            {% if current_user.is_authenticated and decision.is_public and (decision.owner != current_user and not current_user.is_admin) %}
             <div class="alert alert-info shadow-sm mb-4">
                 <i class="fas fa-info-circle me-2"></i> You are viewing a <strong>public decision</strong> shared by <strong><a href="{{ url_for('main.user', username=decision.owner.username) }}" class="alert-link">{{ decision.owner.username }}</a></strong>.
             </div>
-
-            <section class="card border-0 bg-light p-4 mb-4 shadow-sm">
-                <h3 class="h5 mb-4"><i class="fas fa-question-circle me-2 text-info"></i>Request Clarification</h3>
-                <p class="small text-muted mb-3">Is the decision description unclear? Ask the owner for more details.</p>
-                <form action="{{ url_for('main.add_clarification', id=decision.id) }}" method="post">
-                    {{ clarification_form.hidden_tag() }}
-                    <div class="mb-3">
-                        {{ clarification_form.message(class="form-control", rows=2, placeholder="e.g., Can you clarify what you mean by...") }}
-                    </div>
-                    {{ clarification_form.submit(class="btn btn-outline-info btn-sm") }}
-                </form>
-            </section>
-
-            <section class="card border-0 bg-light p-4 mb-5 shadow-sm">
-                <h3 class="h5 mb-4"><i class="fas fa-lightbulb me-2 text-warning"></i>Make a Suggestion</h3>
-                <p class="small text-muted mb-4">Have a great idea for this decision? Submit a suggestion for the owner to review.</p>
-                <form action="{{ url_for('main.add_suggestion', id=decision.id) }}" method="post" class="row g-3">
-                    {{ suggestion_form.hidden_tag() }}
-                    <div class="col-12">
-                        {{ suggestion_form.title.label(class="form-label fw-bold") }}
-                        {{ suggestion_form.title(class="form-control", placeholder="e.g., A new perspective...") }}
-                    </div>
-                    <div class="col-12">
-                        {{ suggestion_form.description.label(class="form-label fw-bold") }}
-                        {{ suggestion_form.description(class="form-control", rows=2) }}
-                    </div>
-                    <div class="col-md-6">
-                        {{ suggestion_form.pros.label(class="form-label fw-bold text-success") }}
-                        {{ suggestion_form.pros(class="form-control", rows=2) }}
-                    </div>
-                    <div class="col-md-6">
-                        {{ suggestion_form.cons.label(class="form-label fw-bold text-danger") }}
-                        {{ suggestion_form.cons(class="form-control", rows=2) }}
-                    </div>
-                    <div class="col-12">
-                        {{ suggestion_form.submit(class="btn btn-primary") }}
-                    </div>
-                </form>
-            </section>
             {% elif current_user.is_anonymous and decision.is_public %}
             <div class="alert alert-info shadow-sm mb-4">
                 <i class="fas fa-info-circle me-2"></i> You are viewing a <strong>public decision</strong> shared by <strong><a href="{{ url_for('main.user', username=decision.owner.username) }}" class="alert-link">{{ decision.owner.username }}</a></strong>. <a href="{{ url_for('auth.login') }}" class="alert-link">Login</a> to contribute!
@@ -390,4 +559,261 @@
         });
     }
     </script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const quills = {};
+    const suggestQuills = {};
+
+    function toggleEdit(stageKey) {
+        const editDiv = document.getElementById(`edit-${stageKey}`);
+        const displayDiv = document.getElementById(`display-${stageKey}`);
+        const comparisonDiv = document.getElementById(`ai-comparison-${stageKey}`);
+        
+        if (editDiv.classList.contains('d-none')) {
+            editDiv.classList.remove('d-none');
+            displayDiv.classList.add('d-none');
+            comparisonDiv.classList.add('d-none');
+            
+            if (!quills[stageKey]) {
+                quills[stageKey] = new Quill(`#editor-${stageKey}`, {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            ['bold', 'italic', 'underline'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['clean']
+                        ]
+                    }
+                });
+                
+                // Set initial content if exists
+                const contentDiv = displayDiv.querySelector('.p-3.bg-light.rounded.border');
+                if (contentDiv) {
+                    quills[stageKey].root.innerHTML = contentDiv.innerHTML;
+                }
+            }
+        } else {
+            editDiv.classList.add('d-none');
+            displayDiv.classList.remove('d-none');
+        }
+    }
+
+    function toggleSuggest(stageKey) {
+        const suggestDiv = document.getElementById(`suggest-${stageKey}`);
+        const displayDiv = document.getElementById(`display-${stageKey}`);
+        
+        if (suggestDiv.classList.contains('d-none')) {
+            suggestDiv.classList.remove('d-none');
+            
+            if (!suggestQuills[stageKey]) {
+                suggestQuills[stageKey] = new Quill(`#suggest-editor-${stageKey}`, {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: [
+                            ['bold', 'italic', 'underline'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['clean']
+                        ]
+                    }
+                });
+            }
+        } else {
+            suggestDiv.classList.add('d-none');
+        }
+    }
+
+    function saveStage(stageKey) {
+        const content = quills[stageKey].root.innerHTML;
+        
+        fetch("{{ url_for('main.update_stage_content', id=decision.id) }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                stage_key: stageKey,
+                content: content
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.hash = `heading${stageKey.split('_')[0]}`;
+                location.reload();
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("Error saving stage content.");
+        });
+    }
+
+    function submitSuggestion(stageKey) {
+        const content = suggestQuills[stageKey].root.innerHTML;
+        
+        fetch("{{ url_for('main.suggest_stage_content', id=decision.id) }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                stage_key: stageKey,
+                content: content
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                toggleSuggest(stageKey);
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("Error submitting suggestion.");
+        });
+    }
+
+    function aiAssist(stageKey) {
+        const btn = document.getElementById(`ai-btn-${stageKey}`);
+        const oldHtml = btn.innerHTML;
+        
+        // Get current content from Quill if it exists, otherwise from display div
+        let currentContent = "";
+        if (quills[stageKey]) {
+            currentContent = quills[stageKey].root.innerHTML;
+        } else {
+            const displayDiv = document.getElementById(`display-${stageKey}`);
+            const contentDiv = displayDiv.querySelector('.p-3.bg-light.rounded.border');
+            if (contentDiv) {
+                currentContent = contentDiv.innerHTML;
+            }
+        }
+        
+        // Check if content is truly empty (excluding default empty p tags)
+        const isContentEmpty = !currentContent || currentContent === '<p><br></p>' || currentContent.trim() === '';
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>AI Thinking...';
+
+        fetch("{{ url_for('main.ai_assist_stage', id=decision.id) }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                stage_key: stageKey,
+                content: currentContent
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+            if (data.suggestion) {
+                // Show side-by-side comparison for all suggestions
+                const comparisonDiv = document.getElementById(`ai-comparison-${stageKey}`);
+                const suggestionContent = document.getElementById(`ai-suggestion-content-${stageKey}`);
+                const displayDiv = document.getElementById(`display-${stageKey}`);
+                
+                suggestionContent.innerHTML = data.suggestion;
+                comparisonDiv.classList.remove('d-none');
+                displayDiv.classList.add('d-none');
+                
+                // Close edit mode if open
+                const editDiv = document.getElementById(`edit-${stageKey}`);
+                if (!editDiv.classList.contains('d-none')) {
+                    toggleEdit(stageKey);
+                }
+            } else {
+                alert("AI Error: " + (data.error || "Unknown error"));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+            alert("Error contacting AI service.");
+        });
+    }
+
+    function applyAiSuggestion(stageKey) {
+        const suggestionContent = document.getElementById(`ai-suggestion-content-${stageKey}`).innerHTML;
+        
+        // Get current content
+        let currentContent = "";
+        const displayDiv = document.getElementById(`display-${stageKey}`);
+        const contentDiv = displayDiv.querySelector('.p-3.bg-light.rounded.border');
+        if (contentDiv) {
+            currentContent = contentDiv.innerHTML;
+        }
+        
+        const isCurrentEmpty = !currentContent || currentContent === '<p><br></p>' || currentContent.trim() === '';
+        let mergedContent = "";
+        
+        if (isCurrentEmpty) {
+            mergedContent = suggestionContent;
+        } else {
+            // Append with a separator
+            mergedContent = currentContent + '<hr><p><strong>AI Suggestion:</strong></p>' + suggestionContent;
+        }
+
+        // Save directly
+        fetch("{{ url_for('main.update_stage_content', id=decision.id) }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                stage_key: stageKey,
+                content: mergedContent
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.hash = `heading${stageKey.split('_')[0]}`;
+                location.reload();
+            } else {
+                alert("Error: " + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("Error saving stage content.");
+        });
+    }
+
+    function closeAiComparison(stageKey) {
+        const comparisonDiv = document.getElementById(`ai-comparison-${stageKey}`);
+        const displayDiv = document.getElementById(`display-${stageKey}`);
+        comparisonDiv.classList.add('d-none');
+        displayDiv.classList.remove('d-none');
+    }
+
+    // Handle focus on stage from hash
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.location.hash) {
+            const targetId = window.location.hash.substring(1); // remove #
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                // Find the button inside the heading and click it to open the accordion
+                const button = targetElement.querySelector('.accordion-button');
+                if (button && button.classList.contains('collapsed')) {
+                    button.click();
+                }
+                // Scroll to it
+                setTimeout(() => {
+                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 300);
+            }
+        }
+    });
+</script>
 {% endblock %}

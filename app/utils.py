@@ -25,7 +25,6 @@ def categorize_decision(decision):
             Examples: Career, Personal Finance, Health, Education, Travel, Shopping, Technology.
 
             Decision Title: {decision.title}
-            Decision Description: {decision.description}
             
             Return ONLY the category name. No JSON, no preamble, no explanation.
             """

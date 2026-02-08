@@ -5,20 +5,6 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="h5 mb-0"><i class="fas fa-tags me-2 text-primary"></i>Browse by Category</h2>
             <div class="d-flex align-items-center gap-3">
-                <div class="btn-group btn-group-sm" role="group" aria-label="View mode">
-                    <button type="button" class="btn btn-outline-secondary active" onclick="setViewMode('title')" id="btn-view-title" title="Title Only">
-                        <i class="fas fa-heading"></i>
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" onclick="setViewMode('short')" id="btn-view-short" title="Title + Short Description">
-                        <i class="fas fa-align-left"></i>
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" onclick="setViewMode('summary')" id="btn-view-summary" title="Title + Summary">
-                        <i class="fas fa-align-center"></i>
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" onclick="setViewMode('full')" id="btn-view-full" title="Title + Full Description">
-                        <i class="fas fa-align-justify"></i>
-                    </button>
-                </div>
                 {% if selected_category %}
                 <a href="{{ url_for('main.index') }}" class="btn btn-sm btn-outline-secondary">
                     <i class="fas fa-times me-1"></i>Clear Filter: <strong>{{ selected_category }}</strong>
@@ -128,19 +114,6 @@
                         <p class="card-text text-muted small">
                             Created on {{ decision.created_at.strftime('%Y-%m-%d') }}
                         </p>
-                        {% if decision.description %}
-                        <div class="card-text text-muted small mb-2 decision-description">
-                            <div class="view-mode-content view-mode-short d-none">
-                                {{ decision.description|striptags|truncate(100) }}
-                            </div>
-                            <div class="view-mode-content view-mode-summary d-none">
-                                {{ decision.description|striptags|truncate(250) }}
-                            </div>
-                            <div class="view-mode-content view-mode-full d-none">
-                                {{ decision.description|safe }}
-                            </div>
-                        </div>
-                        {% endif %}
                     </div>
                     <div class="card-footer bg-transparent border-top-0 pb-3">
                         <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="btn btn-outline-primary btn-sm w-100">View Details</a>
@@ -182,19 +155,6 @@
                         <p class="card-text text-muted small">
                             Shared on {{ decision.created_at.strftime('%Y-%m-%d') }}
                         </p>
-                        {% if decision.description %}
-                        <div class="card-text text-muted small mb-2 decision-description">
-                            <div class="view-mode-content view-mode-short d-none">
-                                {{ decision.description|striptags|truncate(100) }}
-                            </div>
-                            <div class="view-mode-content view-mode-summary d-none">
-                                {{ decision.description|striptags|truncate(250) }}
-                            </div>
-                            <div class="view-mode-content view-mode-full d-none">
-                                {{ decision.description|safe }}
-                            </div>
-                        </div>
-                        {% endif %}
                     </div>
                     <div class="card-footer bg-transparent border-top-0 pb-3">
                         <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="btn btn-outline-secondary btn-sm w-100">View Public Decision</a>
@@ -233,19 +193,6 @@
                         <p class="card-text text-muted small">
                             Shared on {{ decision.created_at.strftime('%Y-%m-%d') }}
                         </p>
-                        {% if decision.description %}
-                        <div class="card-text text-muted small mb-2 decision-description">
-                            <div class="view-mode-content view-mode-short d-none">
-                                {{ decision.description|striptags|truncate(100) }}
-                            </div>
-                            <div class="view-mode-content view-mode-summary d-none">
-                                {{ decision.description|striptags|truncate(250) }}
-                            </div>
-                            <div class="view-mode-content view-mode-full d-none">
-                                {{ decision.description|safe }}
-                            </div>
-                        </div>
-                        {% endif %}
                     </div>
                     <div class="card-footer bg-transparent border-top-0 pb-3">
                         <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="btn btn-outline-secondary btn-sm w-100">View Public Decision</a>
@@ -279,34 +226,4 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    function setViewMode(mode) {
-        // Update buttons
-        document.querySelectorAll('[id^="btn-view-"]').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        const activeBtn = document.getElementById('btn-view-' + mode);
-        if (activeBtn) activeBtn.classList.add('active');
-
-        // Update content visibility
-        document.querySelectorAll('.view-mode-content').forEach(el => {
-            el.classList.add('d-none');
-        });
-        
-        if (mode !== 'title') {
-            document.querySelectorAll('.view-mode-' + mode).forEach(el => {
-                el.classList.remove('d-none');
-            });
-        }
-
-        // Save preference
-        localStorage.setItem('decisionViewMode', mode);
-    }
-
-    // Initialize view mode on load
-    document.addEventListener('DOMContentLoaded', function() {
-        const savedMode = localStorage.getItem('decisionViewMode') || 'full';
-        setViewMode(savedMode);
-    });
-</script>
 {% endblock %}

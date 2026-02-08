@@ -212,6 +212,50 @@ body {
     color: #6c757d;
 }
 
+/* AI Magic Styles */
+.btn-magic {
+    background: linear-gradient(45deg, #6c5ce7, #a29bfe);
+    border: none;
+    color: white;
+}
+
+.btn-magic:hover {
+    background: linear-gradient(45deg, #5b4bc4, #8e85e6);
+    color: white;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+}
+
+.btn-outline-magic {
+    border: 2px solid #6c5ce7;
+    color: #6c5ce7;
+    background: transparent;
+}
+
+.btn-outline-magic:hover {
+    background: #6c5ce7;
+    color: white;
+}
+
+.bg-magic {
+    background: linear-gradient(45deg, #6c5ce7, #a29bfe);
+}
+
+.bg-magic-subtle {
+    background-color: rgba(108, 92, 231, 0.05);
+}
+
+.border-magic {
+    border-color: #6c5ce7 !important;
+}
+
+.text-magic {
+    color: #6c5ce7 !important;
+}
+
+[data-bs-theme="dark"] .bg-magic-subtle {
+    background-color: rgba(108, 92, 231, 0.15);
+}
+
     [data-bs-theme="dark"] .footer {
         border-top-color: #333;
         color: #adb5bd;

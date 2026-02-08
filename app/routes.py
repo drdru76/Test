@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, abort, flash, redirect, url_for, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app import db
-from app.models import User, Decision, Option, Suggestion, Clarification, UserAction
+from app.models import User, Decision, Option, Suggestion, Clarification, UserAction, StageSuggestion
 from app.forms import DecisionForm, OptionForm, SuggestionForm, ClarificationForm, EditProfileForm
 from app.utils import categorize_decision
 import json
@@ -58,9 +58,22 @@ def index():
 def new_decision():
     form = DecisionForm()
     if form.validate_on_submit():
-        decision = Decision(title=form.title.data, description=form.description.data, 
-                            deadline=form.deadline.data, is_public=form.is_public.data, 
+        decision = Decision(title=form.title.data, 
+                            deadline=form.deadline.data, stage=form.stage.data,
+                            is_public=form.is_public.data, 
                             owner=current_user)
+        
+        # Populate stage content
+        decision.stage_1_trigger = form.stage_1_trigger.data
+        decision.stage_2_framing = form.stage_2_framing.data
+        decision.stage_3_objectives = form.stage_3_objectives.data
+        decision.stage_4_options = form.stage_4_options.data
+        decision.stage_5_information = form.stage_5_information.data
+        decision.stage_6_evaluation = form.stage_6_evaluation.data
+        decision.stage_7_emotions = form.stage_7_emotions.data
+        decision.stage_8_commitment = form.stage_8_commitment.data
+        decision.stage_9_execution = form.stage_9_execution.data
+        decision.stage_10_review = form.stage_10_review.data
         
         # Categorize decision using AI
         decision.category = categorize_decision(decision)
@@ -75,8 +88,8 @@ def new_decision():
 
         flash('Your decision process has been started!')
         return redirect(url_for('main.view_decision', id=decision.id))
-    return render_template('create_decision.html', title='New Decision', form=form)
-
+    return render_template('create_decision.html', title='New Decision', form=form,
+                           stage_details=Decision.STAGE_DETAILS)
 @bp.route('/decision/<int:id>')
 def view_decision(id):
     decision = Decision.query.get_or_404(id)
@@ -96,7 +109,171 @@ def view_decision(id):
     return render_template('view_decision.html', title=decision.title, 
                            decision=decision, option_form=option_form, 
                            suggestion_form=suggestion_form,
-                           clarification_form=clarification_form)
+                           clarification_form=clarification_form,
+                           stages=Decision.STAGES,
+                           stage_details=Decision.STAGE_DETAILS)
+
+@bp.route('/decision/<int:id>/update_stage_content', methods=['POST'])
+@login_required
+def update_stage_content(id):
+    decision = Decision.query.get_or_404(id)
+    if decision.owner != current_user and not current_user.is_admin:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    stage_key = data.get('stage_key')
+    content = data.get('content')
+    
+    stage_attr = f"stage_{stage_key}"
+    if hasattr(decision, stage_attr):
+        setattr(decision, stage_attr, content)
+        db.session.commit()
+        return jsonify({"success": True})
+    
+    return jsonify({"error": "Invalid stage"}), 400
+
+@bp.route('/decision/<int:id>/suggest_stage_content', methods=['POST'])
+@login_required
+def suggest_stage_content(id):
+    decision = Decision.query.get_or_404(id)
+    if decision.owner == current_user and not current_user.is_admin:
+         return jsonify({"error": "Owners cannot suggest to themselves"}), 400
+    
+    data = request.get_json()
+    stage_key = data.get('stage_key')
+    content = data.get('content')
+    
+    suggestion = StageSuggestion(
+        stage_key=stage_key,
+        content=content,
+        author=current_user,
+        decision=decision
+    )
+    db.session.add(suggestion)
+    
+    # Log action
+    action = UserAction(user_id=current_user.id, action_type='stage_suggestion', decision_id=decision.id)
+    db.session.add(action)
+    
+    db.session.commit()
+    return jsonify({"success": True, "message": "Suggestion submitted!"})
+
+@bp.route('/decision/<int:id>/ai_assist_stage', methods=['POST'])
+@login_required
+def ai_assist_stage(id):
+    decision = Decision.query.get_or_404(id)
+    if decision.owner != current_user and not current_user.is_admin:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    stage_key = data.get('stage_key')
+    current_content = data.get('content', '')
+    
+    # Find stage label
+    stage_label = ""
+    for k, v in Decision.STAGES:
+        if k == stage_key:
+            stage_label = v
+            break
+            
+    # Gather context from all other stages
+    other_stages_context = ""
+    for k, v in Decision.STAGES:
+        if k != stage_key:
+            stage_content = getattr(decision, f"stage_{k}")
+            if stage_content and stage_content.strip() and stage_content != '<p><br></p>':
+                # Strip HTML for the prompt to keep it cleaner
+                from markupsafe import Markup
+                clean_content = Markup(stage_content).striptags()
+                other_stages_context += f"Stage {v}: {clean_content[:500]}...\n" if len(clean_content) > 500 else f"Stage {v}: {clean_content}\n"
+
+    api_key = current_app.config.get('AI_API_KEY')
+    provider = current_app.config.get('AI_PROVIDER')
+    base_url = current_app.config.get('AI_BASE_URL')
+
+    if api_key:
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key, base_url=base_url)
+            
+            model = "gpt-3.5-turbo"
+            if provider == 'grok':
+                model = "grok-2-1212"
+            elif provider == 'groq':
+                model = "llama-3.3-70b-versatile"
+            
+            prompt = f"""
+            As an expert decision-making coach, help the user refine and expand their thinking for the following stage of their decision process.
+            
+            DECISION CONTEXT:
+            Main Decision: {decision.title}
+            
+            OTHER STAGES CONTEXT (to ensure consistency):
+            {other_stages_context if other_stages_context else "No content in other stages yet."}
+            
+            CURRENT STAGE TO IMPROVE: {stage_label}
+            
+            USER'S CURRENT CONTENT FOR THIS STAGE:
+            {current_content if current_content else "(Empty)"}
+            
+            INSTRUCTIONS:
+            1. Analyze the main decision, the context from other stages, and the current content provided for this specific stage.
+            2. Provide a personalized, detailed, and highly relevant expansion or improvement that builds upon the user's current thinking.
+            3. Ensure your suggestion is consistent with the information provided in other stages.
+            4. Do NOT provide generic advice. Be specific to "{decision.title}".
+            5. If the current content is empty, generate a strong starting point based on the decision title, other stages context, and stage requirements.
+            6. If there is existing content, maintain its core intent while improving clarity, depth, and structure.
+            
+            Format your response using HTML (e.g., <p>, <ul>, <li>, <strong>) for better readability.
+            Return ONLY the improved text content.
+            """
+            
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            ai_content = response.choices[0].message.content.strip()
+            return jsonify({"suggestion": ai_content})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
+    return jsonify({"error": "AI not configured"}), 501
+
+@bp.route('/stage_suggestion/<int:id>/accept', methods=['POST'])
+@login_required
+def accept_stage_suggestion(id):
+    suggestion = StageSuggestion.query.get_or_404(id)
+    if suggestion.decision.owner != current_user and not current_user.is_admin:
+        abort(403)
+    
+    stage_attr = f"stage_{suggestion.stage_key}"
+    if hasattr(suggestion.decision, stage_attr):
+        current_content = getattr(suggestion.decision, stage_attr)
+        if current_content and current_content.strip() and current_content != '<p><br></p>':
+            # Merge with a separator
+            merged_content = f"{current_content}<hr><p><strong>Suggestion from {suggestion.author.username}:</strong></p>{suggestion.content}"
+            setattr(suggestion.decision, stage_attr, merged_content)
+        else:
+            setattr(suggestion.decision, stage_attr, suggestion.content)
+        
+        suggestion.status = 'accepted'
+        db.session.commit()
+        flash('Stage suggestion merged into content!')
+    
+    return redirect(url_for('main.view_decision', id=suggestion.decision_id))
+
+@bp.route('/stage_suggestion/<int:id>/ignore', methods=['POST'])
+@login_required
+def ignore_stage_suggestion(id):
+    suggestion = StageSuggestion.query.get_or_404(id)
+    if suggestion.decision.owner != current_user and not current_user.is_admin:
+        abort(403)
+    
+    suggestion.status = 'ignored'
+    db.session.commit()
+    flash('Stage suggestion ignored.')
+    
+    return redirect(url_for('main.view_decision', id=suggestion.decision_id))
 
 @bp.route('/decision/<int:id>/suggest_options')
 @login_required
@@ -123,10 +300,9 @@ def suggest_options(id):
                 
                 prompt = f"""
                 As an expert decision-making assistant, provide 3 creative and distinct alternative options for the following decision.
-                Base your suggestions heavily on both the title and the detailed description provided to ensure they are highly relevant.
+                Base your suggestions heavily on the title provided to ensure they are highly relevant.
                 
                 Decision Title: {decision.title}
-                Decision Description: {decision.description}
                 
                 IMPORTANT: You must respond ONLY with a JSON object in the following format:
                 {{
@@ -158,8 +334,7 @@ def suggest_options(id):
     
     # Simulation/Fallback
     title = decision.title.lower()
-    description = (decision.description or "").lower()
-    full_text = f"{title} {description}"
+    full_text = f"{title}"
     
     # Simple rule-based "AI" for demonstration
     suggestions = []
@@ -223,7 +398,6 @@ def refine_option(id):
                 As an expert decision-making assistant, help me flesh out an option for the following decision.
                 
                 Decision Title: {decision.title}
-                Decision Description: {decision.description}
                 
                 Option Title: {option_title}
                 
@@ -254,63 +428,6 @@ def refine_option(id):
         "cons": "Needs further evaluation"
     })
 
-@bp.route('/decision/<int:id>/clarify_description', methods=['POST'])
-@login_required
-def clarify_description(id):
-    decision = Decision.query.get_or_404(id)
-    if decision.owner != current_user:
-        abort(403)
-    
-    data = request.get_json()
-    current_title = data.get('title')
-    current_description = data.get('description')
-    
-    api_key = current_app.config.get('AI_API_KEY')
-    provider = current_app.config.get('AI_PROVIDER')
-    base_url = current_app.config.get('AI_BASE_URL')
-
-    if api_key:
-        try:
-            if provider in ['openai', 'grok', 'groq']:
-                from openai import OpenAI
-                client = OpenAI(api_key=api_key, base_url=base_url)
-                
-                model = "gpt-3.5-turbo"
-                if provider == 'grok':
-                    model = "grok-2-1212"
-                elif provider == 'groq':
-                    model = "llama-3.3-70b-versatile"
-                
-                prompt = f"""
-                As an expert decision-making consultant, help me clarify and improve the description of a decision I'm trying to make.
-                
-                Current Title: {current_title}
-                Current Description: {current_description}
-                
-                Please rewrite the description to be more clear, professional, and actionable. 
-                Keep the core intent but improve the structure and wording. 
-                If the current description is very short, expand on what might be important to consider.
-                
-                IMPORTANT: You must respond ONLY with a JSON object in the following format:
-                {{
-                  "clarified_description": "string (can contain basic HTML like <p>, <ul>, <li>, <strong>, <em>)"
-                }}
-                """
-                response = client.chat.completions.create(
-                    model=model,
-                    messages=[{"role": "user", "content": prompt}],
-                    response_format={ "type": "json_object" }
-                )
-                content = response.choices[0].message.content
-                result = json.loads(content)
-                return jsonify(result)
-        except Exception as e:
-            print(f"AI Error: {e}")
-            
-    # Fallback response
-    return jsonify({
-        "clarified_description": f"<p>{current_description}</p><p><em>(Note: AI clarification unavailable. Consider adding more context about the goals, constraints, and stakeholders involved in this decision.)</em></p>"
-    })
 
 @bp.route('/decision/<int:id>/add_option', methods=['POST'])
 @login_required
@@ -371,19 +488,45 @@ def edit_decision(id):
     form = DecisionForm()
     if form.validate_on_submit():
         decision.title = form.title.data
-        decision.description = form.description.data
         decision.deadline = form.deadline.data
+        decision.stage = form.stage.data
         decision.is_public = form.is_public.data
+        
+        # Update stage content
+        decision.stage_1_trigger = form.stage_1_trigger.data
+        decision.stage_2_framing = form.stage_2_framing.data
+        decision.stage_3_objectives = form.stage_3_objectives.data
+        decision.stage_4_options = form.stage_4_options.data
+        decision.stage_5_information = form.stage_5_information.data
+        decision.stage_6_evaluation = form.stage_6_evaluation.data
+        decision.stage_7_emotions = form.stage_7_emotions.data
+        decision.stage_8_commitment = form.stage_8_commitment.data
+        decision.stage_9_execution = form.stage_9_execution.data
+        decision.stage_10_review = form.stage_10_review.data
+        
         db.session.commit()
         flash('Decision updated!')
         return redirect(url_for('main.view_decision', id=decision.id))
     elif request.method == 'GET':
         form.title.data = decision.title
-        form.description.data = decision.description
         form.deadline.data = decision.deadline
+        form.stage.data = decision.stage
         form.is_public.data = decision.is_public
+        
+        # Populate stage content for editing
+        form.stage_1_trigger.data = decision.stage_1_trigger
+        form.stage_2_framing.data = decision.stage_2_framing
+        form.stage_3_objectives.data = decision.stage_3_objectives
+        form.stage_4_options.data = decision.stage_4_options
+        form.stage_5_information.data = decision.stage_5_information
+        form.stage_6_evaluation.data = decision.stage_6_evaluation
+        form.stage_7_emotions.data = decision.stage_7_emotions
+        form.stage_8_commitment.data = decision.stage_8_commitment
+        form.stage_9_execution.data = decision.stage_9_execution
+        form.stage_10_review.data = decision.stage_10_review
     return render_template('edit_decision.html', title='Edit Decision', 
-                           form=form, decision=decision)
+                           form=form, decision=decision,
+                           stage_details=Decision.STAGE_DETAILS)
 
 @bp.route('/decision/<int:id>/delete', methods=['POST'])
 @login_required

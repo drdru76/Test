@@ -32,4 +32,5 @@ def create_app(config_class=Config):
     def not_found_error(error):
         return render_template('404.html'), 404
 
+    app.jinja_env.globals.update(getattr=getattr)
     return app
