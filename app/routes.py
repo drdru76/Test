@@ -20,9 +20,14 @@ def index():
         public_query = Decision.query.filter(Decision.is_public == True, Decision.user_id != current_user.id)
         
         # Check for pending actions on current user's decisions
-        pending_suggestions = Suggestion.query.join(Decision).filter(
+        pending_suggestions_count = Suggestion.query.join(Decision).filter(
             Decision.user_id == current_user.id,
             Suggestion.status == 'pending'
+        ).count()
+        
+        pending_stage_suggestions_count = StageSuggestion.query.join(Decision).filter(
+            Decision.user_id == current_user.id,
+            StageSuggestion.status == 'pending'
         ).count()
         
         pending_clarifications = Clarification.query.join(Decision).filter(
@@ -40,7 +45,7 @@ def index():
         return render_template('index.html', title='Home', decisions=user_decisions, 
                                public_decisions=public_decisions, categories=categories,
                                selected_category=selected_category,
-                               pending_suggestions=pending_suggestions,
+                               pending_suggestions=pending_suggestions_count + pending_stage_suggestions_count,
                                pending_clarifications=pending_clarifications)
     
     # For non-authenticated users, we show public decisions
@@ -136,7 +141,7 @@ def update_stage_content(id):
 @login_required
 def suggest_stage_content(id):
     decision = Decision.query.get_or_404(id)
-    if decision.owner == current_user and not current_user.is_admin:
+    if decision.owner == current_user:
          return jsonify({"error": "Owners cannot suggest to themselves"}), 400
     
     data = request.get_json()
@@ -157,6 +162,28 @@ def suggest_stage_content(id):
     
     db.session.commit()
     return jsonify({"success": True, "message": "Suggestion submitted!"})
+
+@bp.route('/decision/<int:id>/set_current_stage', methods=['POST'])
+@login_required
+def set_current_stage(id):
+    decision = Decision.query.get_or_404(id)
+    if decision.owner != current_user and not current_user.is_admin:
+        flash('You do not have permission to change the stage of this decision.')
+        return redirect(url_for('main.view_decision', id=id))
+    
+    stage_key = request.form.get('stage_key')
+    valid_stages = [s[0] for s in Decision.STAGES]
+    if stage_key in valid_stages:
+        decision.stage = stage_key
+        db.session.commit()
+        flash(f'Decision stage updated.')
+        # Redirect back to the stage that was just set as current
+        stage_num = stage_key.split('_')[0]
+        return redirect(url_for('main.view_decision', id=id) + f'#collapse{stage_num}')
+    else:
+        flash('Invalid stage.')
+    
+    return redirect(url_for('main.view_decision', id=id))
 
 @bp.route('/decision/<int:id>/ai_assist_stage', methods=['POST'])
 @login_required

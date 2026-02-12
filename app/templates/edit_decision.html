@@ -3,9 +3,9 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-10 col-xl-8">
-        <div class="card p-4 shadow-sm border-0">
+        <div class="card p-4 border-0">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1 class="h3 mb-0"><i class="fas fa-edit me-2 text-primary"></i>Edit Decision</h1>
+                <h1 class="h3 mb-0 fw-bold">Edit Decision</h1>
                 <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="btn btn-outline-secondary btn-sm">
                     <i class="fas fa-arrow-left me-1"></i> Back to Decision
                 </a>
@@ -117,14 +117,14 @@
                         <div class="accordion shadow-sm mb-4" id="stagesAccordion">
                             {% for value, label in form.stage.choices %}
                             {% set stage_num = value.split('_')[0] %}
-                            <div class="accordion-item border-0 mb-2 rounded overflow-hidden shadow-sm">
+                            <div class="accordion-item border mb-2 rounded-1 overflow-hidden">
                                 <h2 class="accordion-header" id="heading{{ stage_num }}">
-                                    <button class="accordion-button py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ stage_num }}" aria-expanded="true" aria-controls="collapse{{ stage_num }}">
-                                        <span class="badge rounded-pill bg-secondary me-2">{{ stage_num }}</span>
+                                    <button class="accordion-button py-3 px-3 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ stage_num }}" aria-expanded="false" aria-controls="collapse{{ stage_num }}">
+                                        <span class="badge bg-secondary me-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 20px; height: 20px; padding: 0; font-size: 0.7rem;">{{ stage_num }}</span>
                                         <span class="small fw-bold">{{ label }}</span>
                                     </button>
                                 </h2>
-                                <div id="collapse{{ stage_num }}" class="accordion-collapse collapse show" aria-labelledby="heading{{ stage_num }}" data-bs-parent="#stagesAccordion">
+                                <div id="collapse{{ stage_num }}" class="accordion-collapse collapse" aria-labelledby="heading{{ stage_num }}" data-bs-parent="#stagesAccordion">
                                     <div class="accordion-body bg-white p-3">
                                         <div class="row">
                                             <div class="col-lg-4">
@@ -165,11 +165,11 @@
                         <div class="form-text">If public, other members will be able to see your decision and its options.</div>
                     </div>
                 </div>
-                <div class="d-flex gap-3 mt-4 pt-3 border-top">
-                    <button type="submit" class="btn btn-primary btn-lg px-5">
-                        <i class="fas fa-save me-2"></i>Update Decision
+                <div class="d-flex gap-3 mt-4 pt-4 border-top">
+                    <button type="submit" class="btn btn-primary px-5">
+                        Update Decision
                     </button>
-                    <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                    <a href="{{ url_for('main.view_decision', id=decision.id) }}" class="btn btn-outline-secondary px-4">Cancel</a>
                 </div>
             </form>
         </div>
