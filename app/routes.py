@@ -5,8 +5,49 @@ from app.models import User, Decision, Option, Suggestion, Clarification, UserAc
 from app.forms import DecisionForm, OptionForm, SuggestionForm, ClarificationForm, EditProfileForm
 from app.utils import categorize_decision
 import json
+import os
+import subprocess
+from hmac import compare_digest
 
 bp = Blueprint('main', __name__)
+
+
+@bp.route('/deploy-webhook', methods=['POST'])
+def deploy_webhook():
+    secret = current_app.config.get('WEBHOOK_SECRET')
+    provided_token = request.headers.get('X-Webhook-Token') or request.args.get('token', '')
+
+    if not secret:
+        return jsonify({"status": "error", "message": "Webhook secret is not configured."}), 500
+
+    if not compare_digest(secret, provided_token):
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    repo_path = current_app.config.get('WEBHOOK_REPO_PATH')
+    if not repo_path or not os.path.isdir(repo_path):
+        return jsonify({"status": "error", "message": "Invalid repository path."}), 500
+
+    result = subprocess.run(
+        ['git', 'pull'],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        timeout=90,
+        check=False,
+    )
+
+    status_code = 200 if result.returncode == 0 else 500
+    return jsonify({
+        "status": "ok" if result.returncode == 0 else "error",
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }), status_code
+
+
+@bp.route('/', methods=['POST'])
+def deploy_webhook_root():
+    return deploy_webhook()
 
 @bp.route('/')
 @bp.route('/index')

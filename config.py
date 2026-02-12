@@ -17,3 +17,5 @@ class Config:
     AI_API_KEY = os.environ.get('AI_API_KEY')
     AI_PROVIDER = os.environ.get('AI_PROVIDER') or 'openai' # default to openai
     AI_BASE_URL = os.environ.get('AI_BASE_URL')
+    WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET')
+    WEBHOOK_REPO_PATH = os.environ.get('WEBHOOK_REPO_PATH') or basedir
