@@ -53,6 +53,11 @@ def deploy_webhook_root():
 @bp.route('/index')
 def index():
     selected_category = request.args.get('category')
+    selected_stage = request.args.get('stage')
+    valid_stages = {stage_key for stage_key, _ in Decision.STAGES}
+    if selected_stage not in valid_stages:
+        selected_stage = None
+
     categories = db.session.query(Decision.category).filter(Decision.category != None).distinct().all()
     categories = [c[0] for c in categories if c[0]]
     
@@ -79,6 +84,9 @@ def index():
         if selected_category:
             user_query = user_query.filter(Decision.category == selected_category)
             public_query = public_query.filter(Decision.category == selected_category)
+        if selected_stage:
+            user_query = user_query.filter(Decision.stage == selected_stage)
+            public_query = public_query.filter(Decision.stage == selected_stage)
             
         user_decisions = user_query.order_by(Decision.created_at.desc()).all()
         public_decisions = public_query.order_by(Decision.created_at.desc()).all()
@@ -86,6 +94,8 @@ def index():
         return render_template('index.html', title='Home', decisions=user_decisions, 
                                public_decisions=public_decisions, categories=categories,
                                selected_category=selected_category,
+                               selected_stage=selected_stage,
+                               stages=Decision.STAGES,
                                pending_suggestions=pending_suggestions_count + pending_stage_suggestions_count,
                                pending_clarifications=pending_clarifications)
     
@@ -93,11 +103,14 @@ def index():
     public_query = Decision.query.filter(Decision.is_public == True)
     if selected_category:
         public_query = public_query.filter(Decision.category == selected_category)
+    if selected_stage:
+        public_query = public_query.filter(Decision.stage == selected_stage)
     
     public_decisions = public_query.order_by(Decision.created_at.desc()).all()
         
     return render_template('index.html', title='Home', categories=categories, 
-                           public_decisions=public_decisions, selected_category=selected_category)
+                           public_decisions=public_decisions, selected_category=selected_category,
+                           selected_stage=selected_stage, stages=Decision.STAGES)
 
 @bp.route('/decision/new', methods=['GET', 'POST'])
 @login_required

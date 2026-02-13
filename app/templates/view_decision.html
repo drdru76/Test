@@ -75,7 +75,7 @@
                             </button>
                         </h2>
                         <div id="collapse{{ stage_num }}" class="accordion-collapse collapse {% if stage_content %}show{% endif %}" aria-labelledby="heading{{ stage_num }}" data-bs-parent="#stagesAccordion">
-                            <div class="accordion-body bg-white p-4">
+                            <div class="accordion-body p-4">
                                 <div class="row">
                                     <div class="col-lg-4">
                                         <div class="d-flex align-items-center mb-3">
@@ -93,7 +93,7 @@
                                         </div>
                                         <!-- Stage Guidance -->
                                         {% if stage_details and value in stage_details %}
-                                        <div class="stage-guidance mb-4 p-3 bg-light border-start border-primary border-4 rounded-end">
+                                        <div class="stage-guidance themed-panel mb-4 p-3 bg-light border-start border-primary border-4 rounded-end">
                                             <h5 class="h6 fw-bold text-primary mb-2">{{ stage_details[value]['quote'] }}</h5>
                                             <ul class="small text-muted mb-2 ps-3">
                                                 {% for bullet in stage_details[value]['bullets'] %}
@@ -109,7 +109,7 @@
                                     <div class="col-lg-8">
                                         <div id="display-{{ value }}" class="stage-display mb-3">
                                             {% if stage_content %}
-                                                <div class="p-3 bg-light rounded border">
+                                                <div class="stage-content-view ql-editor p-3 bg-light themed-panel rounded border">
                                                     {{ stage_content|safe }}
                                                 </div>
                                             {% else %}
@@ -127,7 +127,7 @@
                                                     <div class="row g-3">
                                                         <div class="col-md-6">
                                                             <h6 class="fw-bold text-muted mb-2">Current Content</h6>
-                                                            <div class="p-3 border rounded bg-light small" style="max-height: 300px; overflow-y: auto;">
+                                                            <div class="stage-content-view ql-editor p-3 border rounded bg-light themed-panel small" style="max-height: 300px; overflow-y: auto;">
                                                                 {% if stage_content %}
                                                                     {{ stage_content|safe }}
                                                                 {% else %}
@@ -167,7 +167,7 @@
                                                             </a>
                                                             <span class="text-muted" style="font-size: 0.7rem;">{{ sug.created_at.strftime('%Y-%m-%d') }}</span>
                                                         </div>
-                                                        <div class="mb-2 border p-2 bg-light rounded" style="max-height: 80px; overflow-y: auto;">
+                                                        <div class="mb-2 border p-2 bg-light themed-panel rounded" style="max-height: 80px; overflow-y: auto;">
                                                             {{ sug.content|safe }}
                                                         </div>
                                                         <div class="d-flex gap-2">
@@ -188,7 +188,7 @@
                                         {% endif %}
                                         
                                         <div id="edit-{{ value }}" class="stage-edit d-none">
-                                            <div id="editor-{{ value }}" style="height: 200px;" class="mb-3"></div>
+                                            <div id="editor-{{ value }}" class="mb-3 quill-auto"></div>
                                             <div class="d-flex gap-2">
                                                 <button class="btn btn-primary btn-sm" onclick="saveStage('{{ value }}')">
                                                     <i class="fas fa-save me-1"></i> Save
@@ -212,7 +212,7 @@
 
                                         {% if current_user.is_admin and decision.owner != current_user %}
                                         <div id="suggest-{{ value }}" class="stage-suggest d-none mt-3">
-                                            <div id="suggest-editor-{{ value }}" style="height: 200px;" class="mb-3"></div>
+                                            <div id="suggest-editor-{{ value }}" class="mb-3 quill-auto"></div>
                                             <div class="d-flex gap-2">
                                                 <button class="btn btn-warning btn-sm" onclick="submitSuggestion('{{ value }}')">
                                                     <i class="fas fa-paper-plane me-1"></i> Submit Suggestion
@@ -224,7 +224,7 @@
 
                                         {% elif current_user.is_authenticated %}
                                         <div id="suggest-{{ value }}" class="stage-suggest d-none">
-                                            <div id="suggest-editor-{{ value }}" style="height: 200px;" class="mb-3"></div>
+                                            <div id="suggest-editor-{{ value }}" class="mb-3 quill-auto"></div>
                                             <div class="d-flex gap-2">
                                                 <button class="btn btn-warning btn-sm" onclick="submitSuggestion('{{ value }}')">
                                                     <i class="fas fa-paper-plane me-1"></i> Submit Suggestion
@@ -341,7 +341,7 @@
                 });
                 
                 // Set initial content if exists
-                const contentDiv = displayDiv.querySelector('.p-3.bg-light.rounded.border');
+                const contentDiv = displayDiv.querySelector('.stage-content-view');
                 if (contentDiv) {
                     quills[stageKey].root.innerHTML = contentDiv.innerHTML;
                 }
@@ -442,7 +442,7 @@
             currentContent = quills[stageKey].root.innerHTML;
         } else {
             const displayDiv = document.getElementById(`display-${stageKey}`);
-            const contentDiv = displayDiv.querySelector('.p-3.bg-light.rounded.border');
+            const contentDiv = displayDiv.querySelector('.stage-content-view');
             if (contentDiv) {
                 currentContent = contentDiv.innerHTML;
             }
@@ -501,7 +501,7 @@
         // Get current content
         let currentContent = "";
         const displayDiv = document.getElementById(`display-${stageKey}`);
-        const contentDiv = displayDiv.querySelector('.p-3.bg-light.rounded.border');
+        const contentDiv = displayDiv.querySelector('.stage-content-view');
         if (contentDiv) {
             currentContent = contentDiv.innerHTML;
         }

@@ -216,6 +216,11 @@ a:hover {
     background-color: var(--surface-soft) !important;
 }
 
+.themed-panel {
+    background-color: var(--surface-soft) !important;
+    border-color: var(--line) !important;
+}
+
 .bg-primary-subtle {
     background-color: var(--brand-soft) !important;
 }
@@ -356,9 +361,210 @@ a:hover {
     border-style: dashed !important;
 }
 
+.view-toggle-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.view-toggle-btn {
+    min-width: 72px;
+}
+
+.view-toggle-btn.active {
+    background: var(--ink-900);
+    border-color: var(--ink-900);
+    color: #fff;
+}
+
+.decision-grid-toolbar {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.decision-grid-toolbar .form-control,
+.decision-grid-toolbar .form-select {
+    max-width: 320px;
+}
+
+.decision-aggrid {
+    width: 100%;
+    height: clamp(420px, 62vh, 760px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.ag-theme-quartz {
+    --ag-background-color: var(--surface);
+    --ag-foreground-color: var(--ink-700);
+    --ag-header-background-color: var(--surface-soft);
+    --ag-header-foreground-color: var(--ink-900);
+    --ag-border-color: var(--line);
+    --ag-row-hover-color: color-mix(in srgb, var(--brand-soft) 45%, var(--surface));
+    --ag-odd-row-background-color: color-mix(in srgb, var(--surface-soft) 55%, var(--surface));
+    --ag-selected-row-background-color: color-mix(in srgb, var(--brand-soft) 70%, var(--surface));
+    --ag-input-focus-border-color: var(--brand);
+    --ag-modal-overlay-background-color: rgba(15, 19, 24, 0.35);
+    --ag-font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --ag-font-size: 13px;
+}
+
+[data-bs-theme="dark"] .ag-theme-quartz {
+    --ag-background-color: #111821;
+    --ag-foreground-color: #d6dfeb;
+    --ag-header-background-color: #1a2431;
+    --ag-header-foreground-color: #f3f7ff;
+    --ag-border-color: #2a3747;
+    --ag-secondary-border-color: #334255;
+    --ag-row-hover-color: rgba(42, 216, 133, 0.12);
+    --ag-odd-row-background-color: #131d28;
+    --ag-selected-row-background-color: rgba(42, 216, 133, 0.16);
+    --ag-input-focus-border-color: #2ad885;
+    --ag-modal-overlay-background-color: rgba(5, 8, 12, 0.6);
+}
+
+[data-bs-theme="dark"] .decision-grid-toolbar .form-control,
+[data-bs-theme="dark"] .decision-grid-toolbar .form-select {
+    background: #111821;
+    border-color: #334255;
+    color: #e6edf8;
+}
+
+[data-bs-theme="dark"] .decision-grid-toolbar .form-control::placeholder {
+    color: #8ea0b7;
+}
+
+[data-bs-theme="dark"] .decision-header-card {
+    background: linear-gradient(180deg, #1a2431 0%, #111821 100%);
+    border-color: #334255;
+}
+
+[data-bs-theme="dark"] .themed-panel {
+    background-color: #17212d !important;
+    border-color: #334255 !important;
+}
+
+[data-bs-theme="dark"] .card.border-warning {
+    border-color: rgba(245, 158, 11, 0.42) !important;
+}
+
+[data-bs-theme="dark"] .card.border-info {
+    border-color: rgba(14, 165, 233, 0.42) !important;
+}
+
+.ag-row-link {
+    color: var(--brand-strong);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.ag-row-link:hover {
+    text-decoration: underline;
+}
+
+.ag-group-row {
+    font-weight: 800;
+    color: var(--ink-900);
+}
+
+.ag-group-toggle {
+    display: inline-block;
+    width: 14px;
+    margin-right: 6px;
+    color: var(--ink-500);
+}
+
+.ag-row-link-child {
+    margin-left: 20px;
+}
+
+.ag-group-parent-row .ag-cell {
+    background: color-mix(in srgb, var(--surface-soft) 86%, white);
+    border-bottom-color: var(--line);
+    cursor: pointer;
+}
+
+[data-bs-theme="dark"] .ag-group-parent-row .ag-cell {
+    background: #1a2431;
+    border-bottom-color: #334255;
+}
+
+.ag-group-child-row .ag-cell {
+    background: var(--surface);
+}
+
+[data-bs-theme="dark"] .ag-group-child-row .ag-cell {
+    background: #111821;
+}
+
+.home-grid-view .decision-tile-grid {
+    display: none !important;
+}
+
+.home-grid-view .decision-grid-panel {
+    display: block !important;
+}
+
+@media (min-width: 992px) {
+    .decision-grid-toolbar {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .decision-grid-toolbar {
+        flex-direction: column;
+    }
+
+    .decision-grid-toolbar .form-control,
+    .decision-grid-toolbar .form-select {
+        max-width: none;
+    }
+}
+
 .ql-toolbar.ql-snow,
 .ql-container.ql-snow {
     border-color: var(--line) !important;
+}
+
+.ql-container .ql-editor {
+    color: var(--ink-700);
+    background: var(--surface);
+    font-size: 1rem;
+    line-height: 1.62;
+}
+
+.ql-container .ql-editor.ql-blank::before {
+    color: var(--ink-500);
+}
+
+.stage-content-view {
+    white-space: pre-wrap;
+    line-height: 1.62;
+    font-size: 1rem;
+    padding: 1rem 1.1rem !important;
+}
+
+.stage-content-view p,
+.stage-content-view ul,
+.stage-content-view ol,
+.stage-content-view blockquote {
+    margin-bottom: 0.8rem;
+}
+
+.stage-content-view p:last-child,
+.stage-content-view ul:last-child,
+.stage-content-view ol:last-child,
+.stage-content-view blockquote:last-child {
+    margin-bottom: 0;
+}
+
+.stage-content-view ul,
+.stage-content-view ol {
+    padding-left: 1.35rem;
 }
 
 .ql-container.ql-snow {
@@ -369,6 +575,55 @@ a:hover {
 .ql-toolbar.ql-snow {
     border-top-left-radius: var(--radius-sm);
     border-top-right-radius: var(--radius-sm);
+    background: var(--surface-soft);
+}
+
+.quill-auto.ql-container {
+    height: auto !important;
+    min-height: 220px;
+}
+
+.quill-auto.ql-container .ql-editor {
+    min-height: 220px;
+    height: auto;
+    overflow-y: hidden;
+}
+
+[data-bs-theme="dark"] .ql-toolbar.ql-snow,
+[data-bs-theme="dark"] .ql-container.ql-snow {
+    border-color: #334255 !important;
+}
+
+[data-bs-theme="dark"] .ql-toolbar.ql-snow {
+    background: #17212d;
+}
+
+[data-bs-theme="dark"] .ql-container .ql-editor {
+    background: #111821;
+    color: #d6dfeb;
+}
+
+[data-bs-theme="dark"] .ql-snow .ql-stroke {
+    stroke: #9db0c8;
+}
+
+[data-bs-theme="dark"] .ql-snow .ql-fill {
+    fill: #9db0c8;
+}
+
+[data-bs-theme="dark"] .ql-snow .ql-picker {
+    color: #9db0c8;
+}
+
+[data-bs-theme="dark"] .ql-snow .ql-picker-options {
+    background: #17212d;
+    border-color: #334255;
+}
+
+[data-bs-theme="dark"] .stage-display,
+[data-bs-theme="dark"] .stage-suggestions-contextual,
+[data-bs-theme="dark"] .ai-comparison {
+    color: #d6dfeb;
 }
 
 @media (max-width: 991.98px) {

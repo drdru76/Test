@@ -5,22 +5,47 @@
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="h5 mb-0 text-secondary fw-bold text-uppercase tracking-wider" style="font-size: 0.85rem;"><i class="fas fa-tags me-2"></i>Browse by Category</h2>
             <div class="d-flex align-items-center gap-3">
-                {% if selected_category %}
+                <div class="view-toggle-group" role="group" aria-label="Decision view toggle">
+                    <button type="button" class="btn btn-sm btn-outline-secondary view-toggle-btn active" id="tile-view-btn" onclick="setDecisionView('tile')">
+                        <i class="fas fa-th-large me-1"></i>Tile
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary view-toggle-btn" id="grid-view-btn" onclick="setDecisionView('grid')">
+                        <i class="fas fa-grip-horizontal me-1"></i>Grid
+                    </button>
+                </div>
+                {% if selected_category or selected_stage %}
                 <a href="{{ url_for('main.index') }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="fas fa-times me-1"></i>Clear Filter: <strong>{{ selected_category }}</strong>
+                    <i class="fas fa-times me-1"></i>Clear Filters
                 </a>
                 {% endif %}
             </div>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <a href="{{ url_for('main.index') }}" 
+            <a href="{{ url_for('main.index', stage=selected_stage if selected_stage else None) }}" 
                class="badge {% if not selected_category %}bg-primary text-white{% else %}bg-light text-primary border{% endif %} rounded-pill px-3 py-2 text-decoration-none">
                All
             </a>
             {% for category in categories %}
-            <a href="{{ url_for('main.index', category=category) }}" 
+            <a href="{{ url_for('main.index', category=category, stage=selected_stage if selected_stage else None) }}" 
                class="badge {% if selected_category == category %}bg-primary text-white{% else %}bg-light text-primary border{% endif %} rounded-pill px-3 py-2 text-decoration-none">
                {{ category }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="h5 mb-0 text-secondary fw-bold text-uppercase tracking-wider" style="font-size: 0.85rem;"><i class="fas fa-layer-group me-2"></i>Browse by Stage</h2>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('main.index', category=selected_category if selected_category else None) }}"
+               class="badge {% if not selected_stage %}bg-primary text-white{% else %}bg-light text-primary border{% endif %} rounded-pill px-3 py-2 text-decoration-none">
+               All
+            </a>
+            {% for stage_key, stage_label in stages %}
+            <a href="{{ url_for('main.index', category=selected_category if selected_category else None, stage=stage_key) }}"
+               class="badge {% if selected_stage == stage_key %}bg-primary text-white{% else %}bg-light text-primary border{% endif %} rounded-pill px-3 py-2 text-decoration-none">
+               {{ stage_label }}
             </a>
             {% endfor %}
         </div>
@@ -47,7 +72,7 @@
         </div>
         {% endif %}
 
-        {% if not selected_category %}
+        {% if not selected_category and not selected_stage %}
         <div class="row mb-4">
             <div class="col">
                 <h1 class="h2 fw-bold mb-1">Hi, <a href="{{ url_for('main.user', username=current_user.username) }}" class="text-decoration-none text-dark-emphasis">{{ current_user.username }}</a>!</h1>
@@ -61,14 +86,26 @@
         </div>
         {% else %}
         <div class="mb-4">
-            <h1 class="h3">Decisions in <strong>{{ selected_category }}</strong></h1>
-            <p class="text-muted">Showing both your decisions and public decisions in this category.</p>
+            <h1 class="h3">Filtered Decisions</h1>
+            <p class="text-muted mb-0">Category:
+                <strong>{{ selected_category if selected_category else 'All' }}</strong>
+                | Stage:
+                <strong>
+                    {% if selected_stage %}
+                        {% for stage_key, stage_label in stages %}
+                            {% if selected_stage == stage_key %}{{ stage_label }}{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        All
+                    {% endif %}
+                </strong>
+            </p>
         </div>
         {% endif %}
 
         <h2 class="h4 mb-3"><i class="fas fa-list-check me-2 text-primary"></i>Your Decisions</h2>
         {% if decisions %}
-        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-5">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-5 decision-grid decision-tile-grid">
             {% for decision in decisions %}
             <div class="col">
                 <div class="card h-100">
@@ -79,7 +116,7 @@
                                     {{ decision.title }}
                                 </a>
                                 {% if decision.category %}
-                                <a href="{{ url_for('main.index', category=decision.category) }}" class="badge bg-light text-muted border small ms-1 text-decoration-none" style="font-size: 0.7rem;">{{ decision.category }}</a>
+                                <a href="{{ url_for('main.index', category=decision.category, stage=selected_stage if selected_stage else None) }}" class="badge bg-light text-muted border small ms-1 text-decoration-none" style="font-size: 0.7rem;">{{ decision.category }}</a>
                                 {% endif %}
                             </h5>
                             <div>
@@ -123,19 +160,31 @@
             </div>
             {% endfor %}
         </div>
+        <div class="decision-grid-panel d-none mb-5" id="your-decisions-panel">
+            <div class="decision-grid-toolbar">
+                <input type="text" class="form-control form-control-sm" id="your-decisions-search" placeholder="Search your decisions...">
+                <select class="form-select form-select-sm" id="your-decisions-group">
+                    <option value="">No grouping</option>
+                    <option value="category">Group by Category</option>
+                    <option value="stage">Group by Stage</option>
+                    <option value="status">Group by Status</option>
+                    <option value="visibility">Group by Visibility</option>
+                </select>
+            </div>
+            <div id="your-decisions-aggrid" class="ag-theme-quartz decision-aggrid"></div>
+        </div>
         {% else %}
         <div class="text-center py-5 mb-5">
             <div class="mb-3">
                 <i class="fas fa-clipboard-list fa-4x text-light"></i>
             </div>
-            <p class="text-muted">You haven't started any decision processes yet.</p>
-            <a href="{{ url_for('main.new_decision') }}" class="btn btn-primary">Start your first decision!</a>
+            <a href="{{ url_for('main.new_decision') }}" class="btn btn-primary">Create a new decision</a>
         </div>
         {% endif %}
 
         {% if public_decisions %}
         <h2 class="h4 mb-3 mt-5"><i class="fas fa-globe me-2 text-primary"></i>Public Decisions</h2>
-        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 decision-grid decision-tile-grid">
             {% for decision in public_decisions %}
             <div class="col">
                 <div class="card h-100 border-dashed">
@@ -146,7 +195,7 @@
                                     {{ decision.title }}
                                 </a>
                                 {% if decision.category %}
-                                <a href="{{ url_for('main.index', category=decision.category) }}" class="badge bg-light text-muted border small ms-1 text-decoration-none" style="font-size: 0.7rem;">{{ decision.category }}</a>
+                                <a href="{{ url_for('main.index', category=decision.category, stage=selected_stage if selected_stage else None) }}" class="badge bg-light text-muted border small ms-1 text-decoration-none" style="font-size: 0.7rem;">{{ decision.category }}</a>
                                 {% endif %}
                             </h5>
                             <a href="{{ url_for('main.user', username=decision.owner.username) }}" class="badge bg-light text-muted border rounded-pill text-decoration-none" title="View Profile">
@@ -164,16 +213,42 @@
             </div>
             {% endfor %}
         </div>
+        <div class="decision-grid-panel d-none" id="public-decisions-panel">
+            <div class="decision-grid-toolbar">
+                <input type="text" class="form-control form-control-sm" id="public-decisions-search" placeholder="Search public decisions...">
+                <select class="form-select form-select-sm" id="public-decisions-group">
+                    <option value="">No grouping</option>
+                    <option value="category">Group by Category</option>
+                    <option value="stage">Group by Stage</option>
+                    <option value="status">Group by Status</option>
+                    <option value="owner">Group by Owner</option>
+                </select>
+            </div>
+            <div id="public-decisions-aggrid" class="ag-theme-quartz decision-aggrid"></div>
+        </div>
         {% endif %}
     {% else %}
-        {% if selected_category %}
+        {% if selected_category or selected_stage %}
         <div class="mb-4">
-            <h1 class="h3">Public Decisions in <strong>{{ selected_category }}</strong></h1>
+            <h1 class="h3">Filtered Public Decisions</h1>
+            <p class="text-muted mb-0">Category:
+                <strong>{{ selected_category if selected_category else 'All' }}</strong>
+                | Stage:
+                <strong>
+                    {% if selected_stage %}
+                        {% for stage_key, stage_label in stages %}
+                            {% if selected_stage == stage_key %}{{ stage_label }}{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        All
+                    {% endif %}
+                </strong>
+            </p>
             <p class="text-muted">Login to create your own decisions or contribute to these.</p>
         </div>
 
         {% if public_decisions %}
-        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-5">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-5 decision-grid decision-tile-grid">
             {% for decision in public_decisions %}
             <div class="col">
                 <div class="card h-100 border-dashed">
@@ -184,7 +259,7 @@
                                     {{ decision.title }}
                                 </a>
                                 {% if decision.category %}
-                                <a href="{{ url_for('main.index', category=decision.category) }}" class="badge bg-light text-muted border small ms-1 text-decoration-none" style="font-size: 0.7rem;">{{ decision.category }}</a>
+                                <a href="{{ url_for('main.index', category=decision.category, stage=selected_stage if selected_stage else None) }}" class="badge bg-light text-muted border small ms-1 text-decoration-none" style="font-size: 0.7rem;">{{ decision.category }}</a>
                                 {% endif %}
                             </h5>
                             <a href="{{ url_for('main.user', username=decision.owner.username) }}" class="badge bg-light text-muted border rounded-pill text-decoration-none" title="View Profile">
@@ -201,6 +276,19 @@
                 </div>
             </div>
             {% endfor %}
+        </div>
+        <div class="decision-grid-panel d-none mb-5" id="public-decisions-panel">
+            <div class="decision-grid-toolbar">
+                <input type="text" class="form-control form-control-sm" id="public-decisions-search" placeholder="Search public decisions...">
+                <select class="form-select form-select-sm" id="public-decisions-group">
+                    <option value="">No grouping</option>
+                    <option value="category">Group by Category</option>
+                    <option value="stage">Group by Stage</option>
+                    <option value="status">Group by Status</option>
+                    <option value="owner">Group by Owner</option>
+                </select>
+            </div>
+            <div id="public-decisions-aggrid" class="ag-theme-quartz decision-aggrid"></div>
         </div>
         {% else %}
         <div class="text-center py-5 mb-5 bg-light rounded-3">
@@ -227,4 +315,382 @@
 {% endblock %}
 
 {% block scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css">
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
+<script>
+    const decisionGridConfigs = [];
+    const decisionGridApis = {};
+    const decisionGridStates = {};
+
+    function setDecisionView(mode) {
+        const isGrid = mode === 'grid';
+        document.body.classList.toggle('home-grid-view', isGrid);
+        document.getElementById('tile-view-btn')?.classList.toggle('active', !isGrid);
+        document.getElementById('grid-view-btn')?.classList.toggle('active', isGrid);
+        if (isGrid) {
+            ensureDecisionGridsReady();
+            refreshDecisionGridLayouts();
+        }
+        localStorage.setItem('home_decision_view', mode);
+    }
+
+    function setGridRows(api, rows) {
+        if (!api) return;
+        if (typeof api.setGridOption === 'function') {
+            api.setGridOption('rowData', rows);
+        } else if (typeof api.setRowData === 'function') {
+            api.setRowData(rows);
+        }
+    }
+
+    function autoSizeDecisionGridColumns(api) {
+        if (!api) return;
+        requestAnimationFrame(() => {
+            const allColIds = [];
+            if (typeof api.getColumns === 'function') {
+                (api.getColumns() || []).forEach((col) => {
+                    if (typeof col.getColId === 'function') allColIds.push(col.getColId());
+                });
+            }
+
+            if (allColIds.length > 0 && typeof api.autoSizeColumns === 'function') {
+                api.autoSizeColumns(allColIds, false);
+            } else if (typeof api.autoSizeAllColumns === 'function') {
+                api.autoSizeAllColumns(false);
+            } else if (api.columnApi && typeof api.columnApi.autoSizeAllColumns === 'function') {
+                api.columnApi.autoSizeAllColumns(false);
+            } else if (typeof api.sizeColumnsToFit === 'function') {
+                api.sizeColumnsToFit();
+            }
+        });
+    }
+
+    function filterRows(rows, searchTerm) {
+        const term = (searchTerm || '').trim().toLowerCase();
+        if (!term) return rows;
+        return rows.filter((row) => {
+            const values = [row.title, row.category, row.stage, row.status, row.visibility, row.owner, row.created_at];
+            return values.some((value) => String(value || '').toLowerCase().includes(term));
+        });
+    }
+
+    function buildGroupedTreeRows(rows, field, labels, expandedGroups) {
+        if (!field) return rows;
+        const buckets = {};
+        rows.forEach((row) => {
+            const key = row[field] || 'Unspecified';
+            if (!buckets[key]) buckets[key] = [];
+            buckets[key].push(row);
+        });
+
+        const groupedRows = [];
+        Object.keys(buckets).sort((a, b) => a.localeCompare(b)).forEach((groupKey) => {
+            const groupId = `${field}::${groupKey}`;
+            const children = buckets[groupKey];
+            const isExpanded = expandedGroups[groupId] !== false;
+
+            groupedRows.push({
+                __group: true,
+                __groupId: groupId,
+                __expanded: isExpanded,
+                title: `${labels[field] || field}: ${groupKey} (${children.length})`
+            });
+
+            if (isExpanded) {
+                children.forEach((child) => groupedRows.push({
+                    ...child,
+                    __child: true,
+                    __groupId: groupId
+                }));
+            }
+        });
+
+        return groupedRows;
+    }
+
+    function refreshGridData(state) {
+        if (!state || !state.api) return;
+        const filtered = filterRows(state.baseRows, state.searchTerm);
+        const displayRows = buildGroupedTreeRows(
+            filtered,
+            state.groupField,
+            state.groupLabels,
+            state.expandedGroups
+        );
+        setGridRows(state.api, displayRows);
+        autoSizeDecisionGridColumns(state.api);
+    }
+
+    function initDecisionGrid(config) {
+        if (decisionGridApis[config.gridId]) return;
+        const root = document.getElementById(config.gridId);
+        if (!root || !window.agGrid || !config.rows || config.rows.length === 0) return;
+        const state = {
+            gridId: config.gridId,
+            baseRows: config.rows,
+            groupField: '',
+            searchTerm: '',
+            expandedGroups: {},
+            groupLabels: {
+                category: 'Category',
+                stage: 'Stage',
+                status: 'Status',
+                visibility: 'Visibility',
+                owner: 'Owner'
+            }
+        };
+        decisionGridStates[config.gridId] = state;
+
+        const columnDefs = [
+            {
+                headerName: 'Title',
+                field: 'title',
+                flex: 2.2,
+                minWidth: 240,
+                filter: 'agTextColumnFilter',
+                cellRenderer: (params) => {
+                    if (!params.data) return '';
+                    if (params.data.__group) {
+                        const toggleIcon = params.data.__expanded ? '&#9662;' : '&#9656;';
+                        return `<span class="ag-group-toggle">${toggleIcon}</span><span class="ag-group-row">${params.value}</span>`;
+                    }
+                    const childClass = params.data.__child ? ' ag-row-link-child' : '';
+                    return `<a class="ag-row-link${childClass}" href="${params.data.link}">${params.value}</a>`;
+                }
+            },
+            {
+                headerName: 'Category',
+                field: 'category',
+                flex: 1.2,
+                minWidth: 130,
+                filter: 'agTextColumnFilter',
+                valueGetter: (params) => params.data?.__group ? '' : (params.data?.category || 'Unspecified')
+            },
+            {
+                headerName: 'Stage',
+                field: 'stage',
+                flex: 1.8,
+                minWidth: 220,
+                filter: 'agTextColumnFilter',
+                valueGetter: (params) => params.data?.__group ? '' : (params.data?.stage || 'Unspecified')
+            },
+            {
+                headerName: 'Status',
+                field: 'status',
+                flex: 1,
+                minWidth: 110,
+                filter: 'agTextColumnFilter',
+                valueGetter: (params) => params.data?.__group ? '' : (params.data?.status || '')
+            },
+            {
+                headerName: 'Visibility',
+                field: 'visibility',
+                flex: 1.1,
+                minWidth: 130,
+                filter: 'agTextColumnFilter',
+                valueGetter: (params) => params.data?.__group ? '' : (params.data?.visibility || '')
+            },
+            {
+                headerName: 'Owner',
+                field: 'owner',
+                flex: 1.2,
+                minWidth: 140,
+                filter: 'agTextColumnFilter',
+                hide: !config.showOwner,
+                valueGetter: (params) => params.data?.__group ? '' : (params.data?.owner || '')
+            },
+            {
+                headerName: 'Created',
+                field: 'created_at',
+                flex: 1.1,
+                minWidth: 130,
+                filter: 'agDateColumnFilter',
+                valueGetter: (params) => params.data?.__group ? '' : (params.data?.created_at || '')
+            }
+        ];
+
+        const gridOptions = {
+            rowData: [],
+            columnDefs: columnDefs,
+            defaultColDef: {
+                sortable: true,
+                filter: true,
+                resizable: true
+            },
+            getRowClass: (params) => {
+                if (params.data?.__group) return 'ag-group-parent-row';
+                if (params.data?.__child) return 'ag-group-child-row';
+                return '';
+            },
+            onCellClicked: (params) => {
+                if (!params.data?.__group || params.colDef?.field !== 'title') return;
+                const groupId = params.data.__groupId;
+                state.expandedGroups[groupId] = !(state.expandedGroups[groupId] !== false);
+                refreshGridData(state);
+            },
+            onFirstDataRendered: () => autoSizeDecisionGridColumns(state.api),
+            suppressCellFocus: true,
+            rowHeight: 46,
+            headerHeight: 44,
+            animateRows: true
+        };
+
+        let api;
+        if (typeof agGrid.createGrid === 'function') {
+            api = agGrid.createGrid(root, gridOptions);
+        } else {
+            new agGrid.Grid(root, gridOptions);
+            api = gridOptions.api;
+        }
+
+        const searchInput = document.getElementById(config.searchId);
+        const groupSelect = document.getElementById(config.groupId);
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                state.searchTerm = searchInput.value || '';
+                refreshGridData(state);
+            });
+        }
+
+        if (groupSelect) {
+            groupSelect.addEventListener('change', () => {
+                state.groupField = groupSelect.value || '';
+                state.expandedGroups = {};
+                refreshGridData(state);
+            });
+        }
+
+        state.api = api;
+        refreshGridData(state);
+        decisionGridApis[config.gridId] = api;
+    }
+
+    function ensureDecisionGridsReady() {
+        decisionGridConfigs.forEach((config) => initDecisionGrid(config));
+    }
+
+    function refreshDecisionGridLayouts() {
+        Object.values(decisionGridApis).forEach((api) => {
+            if (!api) return;
+            autoSizeDecisionGridColumns(api);
+            if (typeof api.refreshCells === 'function') {
+                api.refreshCells({ force: true });
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const stageMap = Object.fromEntries({{ stages|tojson }});
+        const stageLabel = (key) => stageMap[key] || key;
+
+        const yourRows = [
+            {% if current_user.is_authenticated and decisions %}
+                {% for decision in decisions %}
+                {
+                    title: {{ decision.title|tojson }},
+                    category: {{ (decision.category or 'Unspecified')|tojson }},
+                    stage: stageLabel({{ decision.stage|tojson }}),
+                    status: {{ decision.status|capitalize|tojson }},
+                    visibility: {{ ('Public' if decision.is_public else 'Private')|tojson }},
+                    owner: {{ current_user.username|tojson }},
+                    created_at: {{ decision.created_at.strftime('%Y-%m-%d')|tojson }},
+                    link: {{ url_for('main.view_decision', id=decision.id)|tojson }}
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            {% endif %}
+        ];
+
+        const publicRows = [
+            {% if public_decisions %}
+                {% for decision in public_decisions %}
+                {
+                    title: {{ decision.title|tojson }},
+                    category: {{ (decision.category or 'Unspecified')|tojson }},
+                    stage: stageLabel({{ decision.stage|tojson }}),
+                    status: {{ decision.status|capitalize|tojson }},
+                    visibility: {{ ('Public' if decision.is_public else 'Private')|tojson }},
+                    owner: {{ decision.owner.username|tojson }},
+                    created_at: {{ decision.created_at.strftime('%Y-%m-%d')|tojson }},
+                    link: {{ url_for('main.view_decision', id=decision.id)|tojson }}
+                }{% if not loop.last %},{% endif %}
+                {% endfor %}
+            {% endif %}
+        ];
+
+        if (yourRows.length === 0) {
+            yourRows.push(
+                {
+                    title: 'Sample: Choose a New Laptop',
+                    category: 'Career',
+                    stage: '2. Framing the Decision',
+                    status: 'Open',
+                    visibility: 'Private',
+                    owner: {{ (current_user.username if current_user.is_authenticated else 'you')|tojson }},
+                    created_at: '2026-02-12',
+                    link: '#'
+                },
+                {
+                    title: 'Sample: Relocate to Another City',
+                    category: 'Lifestyle',
+                    stage: '6. Evaluation & Modeling',
+                    status: 'Open',
+                    visibility: 'Public',
+                    owner: {{ (current_user.username if current_user.is_authenticated else 'you')|tojson }},
+                    created_at: '2026-02-10',
+                    link: '#'
+                }
+            );
+        }
+
+        if (publicRows.length === 0) {
+            publicRows.push(
+                {
+                    title: 'Sample: Start a Side Business',
+                    category: 'Business',
+                    stage: '4. Option Generation',
+                    status: 'Open',
+                    visibility: 'Public',
+                    owner: 'demo_user',
+                    created_at: '2026-02-11',
+                    link: '#'
+                },
+                {
+                    title: 'Sample: Buy vs Rent',
+                    category: 'Finance',
+                    stage: '8. Commitment Decision',
+                    status: 'Completed',
+                    visibility: 'Public',
+                    owner: 'finance_team',
+                    created_at: '2026-02-09',
+                    link: '#'
+                }
+            );
+        }
+
+        decisionGridConfigs.push({
+            gridId: 'your-decisions-aggrid',
+            searchId: 'your-decisions-search',
+            groupId: 'your-decisions-group',
+            rows: yourRows,
+            showOwner: false
+        });
+
+        decisionGridConfigs.push({
+            gridId: 'public-decisions-aggrid',
+            searchId: 'public-decisions-search',
+            groupId: 'public-decisions-group',
+            rows: publicRows,
+            showOwner: true
+        });
+
+        window.addEventListener('resize', refreshDecisionGridLayouts);
+
+        const savedView = localStorage.getItem('home_decision_view');
+        const normalizedView = savedView === 'list' ? 'grid' : (savedView || 'tile');
+        localStorage.setItem('home_decision_view', normalizedView);
+        setDecisionView(normalizedView);
+    });
+</script>
 {% endblock %}
